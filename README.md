@@ -105,3 +105,10 @@ python gui_smoke_test.py
 ## Optional GUI executable
 
 A Windows GUI bundle can be built as a **release asset** rather than committed into the source tree. See `BUILD_EXE.md`.
+
+## DOI
+
+Latest software DOI (all versions): 10.5281/zenodo.19945291
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19945291.svg)]
+
+Specific release DOI for v0.6.3.1: 10.5281/zenodo.19945292
