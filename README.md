@@ -1,5 +1,8 @@
 # LDSFL-Meander
 
+[![Tests](https://github.com/sergioald/LDSFL_Meander/actions/workflows/tests.yml/badge.svg)](https://github.com/sergioald/LDSFL_Meander/actions/workflows/tests.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19945291.svg)](https://doi.org/10.5281/zenodo.19945291)
+
 **LDSFL-Meander** is named after **Lopez-Dubon, Sgarabotto, Frascati and Lanzoni**.
 
 It is a Python reduced morphodynamic model for meandering rivers with:
@@ -13,6 +16,12 @@ This release focuses on a clean, reproducible source version with improved notat
 ## Scope
 
 LDSFL-Meander is intended for reduced-model studies of meander evolution, especially for **wide, mildly curved, long bends**. It is **not** a full 2D or 3D hydrodynamic solver and it should not be presented as a sharp-bend separation model.
+
+## Why this repository is useful
+
+This repository provides a reproducible public version of a reduced meander-evolution model, including command-line execution, GUI-assisted input preparation, smoke tests, citation metadata and an archived DOI release.
+
+It is intended to support transparent research-software reuse, teaching, method comparison and reproducible exploratory studies of meander migration under the model assumptions described below.
 
 ## Important notation
 
@@ -71,6 +80,13 @@ Expected layout:
   Output/          created automatically
   run_ldsfl.py
   ldsfl/
+```
+## Example run
+
+The bundled example can be run with:
+
+```bash
+python run_ldsfl.py --base-dir . --cases 1 --max-steps 50 --no-plots
 ```
 
 ## GUI
