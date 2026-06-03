@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 
-__version__ = '0.6.3'
+__version__ = '0.6.3.1'
 
 for _var in (
     "OMP_NUM_THREADS",
