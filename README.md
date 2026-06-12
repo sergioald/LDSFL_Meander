@@ -10,7 +10,7 @@
 The name refers to **Lopez-Dubon, Sgarabotto, Frascati and Lanzoni**.
 
 <p align="center">
-  <img src="docs/figures/cover.png" alt="LDSFL-Meander model overview" width="900">
+  <img src="docs/figures/cover.png" alt="LDSFL-Meander model overview" width="650">
 </p>
 
 <p align="center">
