@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://doi.org/10.5281/zenodo.19945291"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.19945291.svg" alt="DOI"></a>
-  <img src="https://img.shields.io/badge/version-v0.6.4-blue" alt="Version v0.6.4">
+  <img src="https://img.shields.io/badge/version-v0.6.5-blue" alt="Version v0.6.5">
   <img src="https://img.shields.io/badge/python-%E2%89%A53.10-blue" alt="Python >= 3.10">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
   <img src="https://img.shields.io/badge/GUI-Tkinter%20%2B%20Matplotlib-informational" alt="Tkinter GUI">
@@ -41,7 +41,7 @@ The package includes:
 - a full PDF manual in [`docs/LDSFL_Meander_user_manual.pdf`](docs/LDSFL_Meander_user_manual.pdf),
 - step-vs-sinuosity diagnostics for checking stable or quasi-stable planform evolution.
 
-Version **v0.6.4** adds a GUI-facing **sinuosity stability diagnostic**, saves step-vs-sinuosity history files, and removes Matplotlib GUI-thread warnings during saved figure generation.
+Version **v0.6.5** keeps the v0.6.4 sinuosity diagnostic and adds a more usable GUI workflow: scrollable input/diagnostics tabs, a graceful **Stop after current step** button, and a **Continue from latest output** button for extending a run after a stop criterion or manual stop.
 
 ---
 
@@ -78,6 +78,7 @@ Use the model as a fast research and teaching tool for exploring reduced meander
 | Friction and transport | Multiple friction and Shields-stress input routes through the GUI |
 | Outputs | Planform snapshots, variable histories, centerline/velocity CSV files, plots |
 | Diagnostics | Step-vs-sinuosity history, stable/quasi-stable status, relative span and trend metrics |
+| GUI controls | Scrollable tabs, graceful user stop, and continuation from the latest saved geometry |
 | Reproducibility | Bundled example input, expected output metadata, smoke tests, citation metadata |
 
 ---
@@ -201,9 +202,19 @@ The GUI is intended for interactive setup and teaching. For batch work and scrip
 
 ---
 
+
+## GUI stop and continuation controls
+
+The GUI includes two run-control buttons for longer experiments:
+
+- **Stop after current step** requests a graceful stop. The solver stops at the next safe iteration boundary and writes the final geometry/sinuosity files.
+- **Continue from latest output** starts a new continuation run using the latest saved `xyu` geometry as the next initial centerline. This is useful when a run reaches `max_steps`, `max_cutoffs`, or another stop criterion but the planform is not yet stable.
+
+For continuation runs, the GUI writes an intermediate file named `Input/xy_continue_from_latest.csv` and then starts a new solver segment with the same model parameters. If dimensional outputs were selected, the GUI converts the latest saved coordinates back to solver units before continuing.
+
 ## Sinuosity stability diagnostics
 
-Version **v0.6.4** adds a step-vs-sinuosity diagnostic to help identify whether the planform has become stable or quasi-stable.
+Version **v0.6.5** includes a step-vs-sinuosity diagnostic to help identify whether the planform has become stable or quasi-stable.
 
 Each run writes:
 
@@ -295,9 +306,19 @@ This project is distributed under the MIT License. See [`LICENSE`](LICENSE).
 LDSFL-Meander is named after and authored by:
 
 - Sergio Lopez-Dubon
-- Alessandro Sgarabotto
+- Leonardo Sgarabotto
 - Alessandro Frascati
 - Stefano Lanzoni
 
 ---
 
+## Recommended release workflow
+
+For GitHub and Zenodo releases:
+
+1. update source files and documentation,
+2. run the smoke tests,
+3. commit and push to GitHub,
+4. create a GitHub release,
+5. let Zenodo archive the release and mint a version DOI,
+6. use the Zenodo concept DOI for the project and the version DOI for exact reproducibility.

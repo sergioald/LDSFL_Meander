@@ -4,7 +4,7 @@
 
 **LDSFL-Meander** is named after **Lopez-Dubon, Sgarabotto, Frascati and Lanzoni**.
 
-LDSFL-Meander is a reduced model for meander evolution. The solver works internally with dimensionless parameters, but the GUI can accept either dimensionless or dimensional user inputs. It is intended for reduced-model studies of wide, mildly curved, long bends.
+LDSFL-Meander is a reduced model for meander evolution. The solver works internally with dimensionless parameters, but the GUI can accept either dimensionless or dimensional user inputs. It is intended for reduced-model studies of wide, mildly curved, long bends. Version 0.6.5 adds scrollable GUI tabs plus graceful stop and continuation controls for long runs.
 
 ## 2. Main entry points
 
@@ -53,16 +53,21 @@ LDSFL-Meander writes case outputs under `Output/<id_files>/`, including:
 - `xyu/`
 - `xy_cut/`
 - `plot/`
-- `files/` (saved run variables and sinuosity history)
+- `files/` (saved run variables)
 - `run_manifest.json`
 - `gui_final_overlay.png`
-- `sinuosity_history_<id_files>.csv` and `sinuosity_history_<id_files>.png` for step-vs-sinuosity stability checks
 
 ## 7. Full manual
 
 See `docs/LDSFL_Meander_user_manual.pdf` for the full LaTeX manual.
 
+## Stop and continue from the GUI
 
-## 8. Sinuosity stability
+The **Run & diagnostics** tab now has a vertical scrollbar, so the controls, sinuosity panel, and diagnostic text remain accessible on smaller screens.
 
-The GUI includes a sinuosity stability panel. It plots step number versus sinuosity and reports whether the recent evolution is not stable, quasi-stable, or stable. The default stability window is 100 stored values. The assessment uses both the relative span of sinuosity over the window and the fitted relative trend per step, so it is more robust than checking only the last two values.
+Use **Stop after current step** to request a graceful user stop. The solver will finish the current safe iteration boundary, write the final geometry snapshot, and save the current sinuosity history.
+
+Use **Continue from latest output** after a completed or manually stopped run to launch another segment from the latest saved geometry. This is useful when a run stops because `max_steps`, `max_cutoffs`, or another stop criterion was reached before the sinuosity became stable or quasi-stable.
+
+The continuation button writes `Input/xy_continue_from_latest.csv` from the latest `xyu` snapshot and uses it as the next initial centerline. If outputs were saved in dimensional units, the GUI converts the coordinates back to solver units before continuing.
+

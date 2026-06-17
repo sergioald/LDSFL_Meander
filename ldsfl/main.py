@@ -192,6 +192,7 @@ def run_case(
     output_velocity_scale: float = 1.0,
     sinuo_window: int = 100,
     sinuo_rel_tol: float = 5.0e-3,
+    stop_requested_callback=None,
 ):
     """Run one LDSFL-Meander case using the prepared Input/ files."""
     base_dir = Path(base_dir)
@@ -207,6 +208,7 @@ def run_case(
     xap, yap = read_xy(in_dir / "xy.csv")
     s, x, y, th, Ns, deltas, wave_l, valle_l, sinuo = preprof_3(xap, yap, dsliminicial)
     c = np.gradient(-1.0 * th, edge_order=1)
+    U = np.zeros_like(x, dtype=np.float64)
 
     rpic, Cf0, CT, CD, phiT, phiD, F0 = resistance_function_flagbed(flagbed, theta0, ds, rpic_0)
 
@@ -287,6 +289,11 @@ def run_case(
 
     with threadpool_limits(limits=1):
         while True:
+            if stop_requested_callback is not None and bool(stop_requested_callback()):
+                stop_reason = "stopped by user"
+                stop_criteria_reached = ["user_stop"]
+                break
+
             reached = _criterion_names(
                 steps=steps,
                 dt_cum=dt_cum,
@@ -512,6 +519,42 @@ def run_case(
 
             jt += 1
             cnt_f += 1
+
+    # Always write a final geometry snapshot so the GUI can refresh and
+    # optionally continue from the last available centerline.
+    try:
+        save_xystcu(
+            out_dir,
+            x,
+            y,
+            s,
+            th,
+            c,
+            U,
+            Ntstep,
+            jt,
+            id_files,
+            cut_cnt,
+            output_units=output_units,
+            length_scale=output_length_scale,
+            velocity_scale=output_velocity_scale,
+        )
+        if do_plots:
+            plot_it(
+                out_dir,
+                x_origin,
+                y_origin,
+                x,
+                y,
+                id_files,
+                jt,
+                Ntstep,
+                cut_cnt,
+                output_units=output_units,
+                length_scale=output_length_scale,
+            )
+    except Exception as exc:
+        warnings.warn(f"Final snapshot could not be saved: {exc}", RuntimeWarning)
 
     save_sinuosity_history(out_dir, id_files, step_hist, sinuo_hist)
     stability_info = _sinuosity_stability_metrics(step_hist, sinuo_hist, window=sinuo_window, rel_tol=sinuo_rel_tol)

@@ -68,7 +68,7 @@ Installation, repository structure, command-line and GUI workflows, notation pol
 \end{tcolorbox}
 \vfill
 \includegraphics[width=0.42\textwidth]{figures/cover.png}\\[1.2em]
-{\large Updated manual for LDSFL-Meander version 0.6.4\\[0.4em]}
+{\large Updated manual for LDSFL-Meander version 0.6.5\\[0.4em]}
 {\normalsize \today}
 \end{titlepage}
 
@@ -531,6 +531,19 @@ The run controls also include an \textbf{Output units} selector:
 	\item \textbf{dimensional} rescales saved coordinates and the saved velocity field back to dimensional form when dimensional input mode is used. Lengths are rescaled with the same geometry scale selected in the GUI (typically $B_0$), while velocity is rescaled with the resolved reference velocity $U_0$.
 \end{itemize}
 If dimensional outputs are requested while only dimensionless inputs are provided, the code falls back to dimensionless outputs.
+
+
+\subsection{Scrollable tabs, stop, and continuation}
+
+Version 0.6.5 adds vertical scrollbars to the \textbf{Inputs} and \textbf{Run \& diagnostics} tabs. This keeps the run controls, sinuosity panel, and diagnostic notes accessible on smaller laptop screens.
+
+The \textbf{Run \& diagnostics} tab also includes two controls for long or iterative simulations:
+\begin{itemize}[leftmargin=1.2em]
+    \item \textbf{Stop after current step} requests a graceful stop. The solver finishes the current safe iteration boundary, writes a final geometry snapshot, and saves the current sinuosity history.
+    \item \textbf{Continue from latest output} starts a new solver segment from the latest saved \texttt{xyu} geometry. This is useful if a run stops because a stop criterion was reached but the planform or sinuosity diagnostic is not yet stable.
+\end{itemize}
+
+For a continuation run, the GUI writes \texttt{Input/xy\_continue\_from\_latest.csv} from the latest saved centerline and then runs another segment with the same model parameters. If outputs were saved in dimensional units, the GUI converts the latest coordinates back to solver units before continuing.
 
 \subsection{Sinuosity stability diagnostic}
 

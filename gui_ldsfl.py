@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import copy
 import json
 import threading
 import traceback
@@ -159,6 +160,7 @@ class LdslGui(tk.Tk):
         self.ax = self.figure.add_subplot(111)
         self.run_thread = None
         self.run_in_progress = False
+        self.stop_requested_event = threading.Event()
         self.monitor_job = None
         self.current_id_files = None
         self.current_xyu_dir = None
@@ -168,6 +170,9 @@ class LdslGui(tk.Tk):
         self.latest_config = None
         self.initial_xy = None
         self.final_xy = None
+        self.run_button = None
+        self.stop_button = None
+        self.continue_button = None
 
         self.mode_var = tk.StringVar(value='dimensionless')
         self.advanced_var = tk.BooleanVar(value=False)
@@ -252,6 +257,7 @@ class LdslGui(tk.Tk):
         self._sync_advanced()
         self._update_dimensional_preview()
         self._refresh_initial_plot()
+        self._set_run_button_state(running=False)
 
     def _load_bundled_example_defaults(self) -> None:
         """Load a bundled example case so the GUI is runnable on first launch."""
@@ -337,12 +343,17 @@ class LdslGui(tk.Tk):
 
         self.notebook = ttk.Notebook(outer)
         self.notebook.pack(fill='both', expand=True)
-        self.inputs_tab = ttk.Frame(self.notebook, padding=10)
-        self.run_tab = ttk.Frame(self.notebook, padding=10)
+
+        # Inputs and diagnostics can be taller than a laptop screen.
+        # These two tabs therefore use a real vertical scrollbar.
+        self.inputs_tab_shell = ttk.Frame(self.notebook)
+        self.run_tab_shell = ttk.Frame(self.notebook)
+        self.inputs_tab = self._make_scrollable_tab(self.inputs_tab_shell)
+        self.run_tab = self._make_scrollable_tab(self.run_tab_shell)
         self.plot_tab = ttk.Frame(self.notebook, padding=10)
         self.log_tab = ttk.Frame(self.notebook, padding=10)
-        self.notebook.add(self.inputs_tab, text='Inputs')
-        self.notebook.add(self.run_tab, text='Run & diagnostics')
+        self.notebook.add(self.inputs_tab_shell, text='Inputs')
+        self.notebook.add(self.run_tab_shell, text='Run & diagnostics')
         self.notebook.add(self.plot_tab, text='Plot view')
         self.notebook.add(self.log_tab, text='Log')
 
@@ -353,6 +364,47 @@ class LdslGui(tk.Tk):
 
         status = ttk.Label(outer, textvariable=self.status_var)
         status.pack(fill='x', pady=(8, 0))
+
+    def _make_scrollable_tab(self, parent) -> ttk.Frame:
+        """Create a vertically scrollable notebook tab and return its inner frame."""
+        canvas = tk.Canvas(parent, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(parent, orient='vertical', command=canvas.yview)
+        inner = ttk.Frame(canvas, padding=10)
+        window_id = canvas.create_window((0, 0), window=inner, anchor='nw')
+
+        def _update_scroll_region(_event=None):
+            canvas.configure(scrollregion=canvas.bbox('all'))
+
+        def _resize_inner(event):
+            canvas.itemconfigure(window_id, width=event.width)
+
+        def _on_mousewheel(event):
+            if getattr(event, 'num', None) == 4:
+                canvas.yview_scroll(-3, 'units')
+            elif getattr(event, 'num', None) == 5:
+                canvas.yview_scroll(3, 'units')
+            else:
+                delta = int(-1 * (event.delta / 120)) if event.delta else 0
+                canvas.yview_scroll(delta, 'units')
+
+        def _bind_mousewheel(_event=None):
+            canvas.bind_all('<MouseWheel>', _on_mousewheel)
+            canvas.bind_all('<Button-4>', _on_mousewheel)
+            canvas.bind_all('<Button-5>', _on_mousewheel)
+
+        def _unbind_mousewheel(_event=None):
+            canvas.unbind_all('<MouseWheel>')
+            canvas.unbind_all('<Button-4>')
+            canvas.unbind_all('<Button-5>')
+
+        inner.bind('<Configure>', _update_scroll_region)
+        canvas.bind('<Configure>', _resize_inner)
+        canvas.bind('<Enter>', _bind_mousewheel)
+        canvas.bind('<Leave>', _unbind_mousewheel)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+        return inner
 
     def _build_inputs_tab(self) -> None:
         mode_frame = ttk.LabelFrame(self.inputs_tab, text='Input style', padding=10)
@@ -509,7 +561,14 @@ class LdslGui(tk.Tk):
         ttk.Button(action_frame, text='Save config…', command=self._save_config).pack(side='left', padx=(0, 8))
         ttk.Button(action_frame, text='Load config…', command=self._load_config).pack(side='left', padx=(0, 8))
         ttk.Button(action_frame, text='Write Input/ files', command=self._write_inputs).pack(side='left', padx=(0, 8))
-        ttk.Button(action_frame, text='Run case', command=self._run_case_threaded).pack(side='left', padx=(0, 8))
+        self.run_button = ttk.Button(action_frame, text='Run case', command=self._run_case_threaded)
+        self.run_button.pack(side='left', padx=(0, 8))
+        self.stop_button = ttk.Button(action_frame, text='Stop after current step', command=self._request_stop, state='disabled')
+        self.stop_button.pack(side='left', padx=(0, 8))
+        self.continue_button = ttk.Button(action_frame, text='Continue from latest output', command=self._continue_from_latest_output, state='disabled')
+        self.continue_button.pack(side='left', padx=(0, 8))
+        ToolTip(self.stop_button, 'Request a graceful stop. The solver stops at the next safe iteration boundary and writes final output files.')
+        ToolTip(self.continue_button, 'Start a new continuation run from the latest saved geometry after a stop criterion or manual stop.')
 
         diag_frame = ttk.LabelFrame(self.run_tab, text='Validation and diagnostic notes', padding=10)
         diag_frame.pack(fill='both', expand=True)
@@ -944,20 +1003,100 @@ class LdslGui(tk.Tk):
             self.rpic_var.set(str(cfg.dimensional.rpic_0))
             self.mdat_var.set(str(cfg.dimensional.Mdat))
 
-    def _run_case_threaded(self):
+    def _set_run_button_state(self, *, running: bool):
+        if self.run_button is not None:
+            self.run_button.configure(state='disabled' if running else 'normal')
+        if self.stop_button is not None:
+            self.stop_button.configure(state='normal' if running else 'disabled')
+        if self.continue_button is not None:
+            can_continue = (not running) and (self.latest_result is not None or self.last_snapshot_path is not None)
+            self.continue_button.configure(state='normal' if can_continue else 'disabled')
+
+    def _request_stop(self):
+        if not self.run_in_progress:
+            return
+        self.stop_requested_event.set()
+        self.status_var.set('Stop requested. The solver will stop at the next safe step boundary…')
+        self._log('User stop requested. Waiting for the current solver step to finish safely.')
+        if self.stop_button is not None:
+            self.stop_button.configure(state='disabled')
+
+    def _latest_xyu_snapshot_path(self) -> Path | None:
+        candidates: list[Path] = []
+        if self.last_snapshot_path is not None and Path(self.last_snapshot_path).exists():
+            candidates.append(Path(self.last_snapshot_path))
+        if self.current_xyu_dir is not None and Path(self.current_xyu_dir).exists():
+            candidates.extend(Path(self.current_xyu_dir).glob('*.csv'))
+        if self.latest_result is not None:
+            xyu_dir = Path(self.workspace_var.get()) / 'Output' / self.latest_result['id_files'] / 'xyu'
+            if xyu_dir.exists():
+                candidates.extend(xyu_dir.glob('*.csv'))
+        if not candidates:
+            return None
+        return sorted(set(candidates), key=lambda p: p.stat().st_mtime)[-1]
+
+    def _continue_from_latest_output(self):
         if self.run_in_progress:
             messagebox.showinfo('LDSFL-Meander GUI', 'A run is already in progress.')
             return
-        if not self._validate_setup():
+        latest = self._latest_xyu_snapshot_path()
+        if latest is None or not latest.exists():
+            messagebox.showinfo('LDSFL-Meander GUI', 'No saved geometry snapshot is available yet. Run or refresh outputs first.')
             return
-        config = self._build_config()
-        warnings = validate_case_config(config)
-        if warnings:
-            proceed = messagebox.askyesno('LDSFL-Meander warnings', 'Validation produced warnings. Continue anyway?\n\n' + '\n'.join(f'• {w}' for w in warnings))
-            if not proceed:
+        if self.latest_config is None:
+            try:
+                base_config = self._build_config()
+            except Exception as exc:
+                self._show_error(exc)
                 return
+        else:
+            base_config = self.latest_config
+        try:
+            cfg = copy.deepcopy(base_config)
+            df = pd.read_csv(latest)
+            if not {'x', 'y'}.issubset(df.columns):
+                raise ValueError(f'Latest snapshot does not contain x and y columns: {latest}')
+            x = df['x'].astype(float).to_numpy()
+            y = df['y'].astype(float).to_numpy()
+
+            # If saved outputs were dimensional, convert back to solver units.
+            scale = 1.0
+            if self.latest_result is not None and str(self.latest_result.get('output_units', 'dimensionless')).lower() == 'dimensional':
+                scale = float(self.latest_result.get('output_length_scale', 1.0) or 1.0)
+            if scale != 1.0:
+                x = x / scale
+                y = y / scale
+
+            cont_path = Path(cfg.workspace_dir) / 'Input' / 'xy_continue_from_latest.csv'
+            cont_path.parent.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame({'x': x, 'y': y}).to_csv(cont_path, header=False, index=False)
+            cfg.xy_csv = cont_path
+            cfg.geometry.mode = 'as_is'
+            cfg.geometry.custom_scale = None
+            self._log(f'Prepared continuation geometry from {latest.name}: {cont_path}')
+            self._run_case_threaded(config_override=cfg, continuation=True)
+        except Exception as exc:
+            self._show_error(exc)
+
+    def _run_case_threaded(self, config_override: GuiCaseConfig | None = None, *, continuation: bool = False):
+        if self.run_in_progress:
+            messagebox.showinfo('LDSFL-Meander GUI', 'A run is already in progress.')
+            return
+        if config_override is None:
+            if not self._validate_setup():
+                return
+            config = self._build_config()
+            warnings = validate_case_config(config)
+            if warnings:
+                proceed = messagebox.askyesno('LDSFL-Meander warnings', 'Validation produced warnings. Continue anyway?\n\n' + '\n'.join(f'• {w}' for w in warnings))
+                if not proceed:
+                    return
+        else:
+            config = config_override
+        self.stop_requested_event.clear()
         self.run_in_progress = True
-        self.status_var.set('Run in progress…')
+        self._set_run_button_state(running=True)
+        self.status_var.set('Continuation run in progress…' if continuation else 'Run in progress…')
         self.current_id_files = compute_id_files(config)
         self.current_xyu_dir = Path(config.workspace_dir) / 'Output' / self.current_id_files / 'xyu'
         self.last_snapshot_path = None
@@ -967,15 +1106,15 @@ class LdslGui(tk.Tk):
         self.final_xy = None
         self._refresh_initial_plot()
         self.notebook.select(self.plot_tab)
-        self.run_thread = threading.Thread(target=self._run_case_worker, args=(config,), daemon=True)
+        self.run_thread = threading.Thread(target=self._run_case_worker, args=(config, continuation), daemon=True)
         self.run_thread.start()
         if self.live_preview_var.get():
             self._schedule_monitor()
 
-    def _run_case_worker(self, config: GuiCaseConfig):
+    def _run_case_worker(self, config: GuiCaseConfig, continuation: bool = False):
         try:
             summary = write_case_inputs(config)
-            self._log('Starting LDSFL-Meander run...')
+            self._log('Starting LDSFL-Meander continuation run...' if continuation else 'Starting LDSFL-Meander run...')
             self._log(json.dumps(summary, indent=2))
             scales = output_scales(config)
             results = run_project(
@@ -1008,6 +1147,7 @@ class LdslGui(tk.Tk):
                 output_velocity_scale=scales['output_velocity_scale'],
                 sinuo_window=config.run.sinuo_window,
                 sinuo_rel_tol=config.run.sinuo_rel_tol,
+                stop_requested_callback=self.stop_requested_event.is_set,
             )
             result = results[0]
             if config.run.save_run_manifest:
@@ -1082,7 +1222,9 @@ class LdslGui(tk.Tk):
 
     def _finish_run(self, result: dict):
         self.run_in_progress = False
+        self.stop_requested_event.clear()
         self.latest_result = result
+        self._set_run_button_state(running=False)
         reason = result.get('stop_reason', 'Run complete.')
         self.status_var.set(f'Run complete: {reason}')
         self._log('Run complete.')
@@ -1098,6 +1240,8 @@ class LdslGui(tk.Tk):
 
     def _fail_run(self, message: str, tb: str):
         self.run_in_progress = False
+        self.stop_requested_event.clear()
+        self._set_run_button_state(running=False)
         self.status_var.set('Run failed.')
         if self.monitor_job is not None:
             self.after_cancel(self.monitor_job)

@@ -7,10 +7,10 @@ authors:
   - family-names: "Sgarabotto"
   - family-names: "Frascati"
   - family-names: "Lanzoni"
-version: 0.6.4
+version: 0.6.5
 abstract: >-
   LDSFL-Meander is a reduced meander-morphodynamics model with a Python solver,
   command-line entry points, and a desktop GUI for dimensionless or dimensional
   parameter setup, geometry scaling/filtering by B_0, flexible stop criteria, output-unit selection, and
-  plot-based run monitoring, and step-vs-sinuosity stability diagnostics.
+  plot-based run monitoring, step-vs-sinuosity stability diagnostics, scrollable GUI tabs, and graceful stop/continue controls.
 license: "MIT"

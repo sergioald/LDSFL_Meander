@@ -1,24 +1,23 @@
 {
-  "command": "python run_ldsfl.py --base-dir . --cases 1 --max-steps 5 --nprint 2 --max-cut 1 --no-plots",
-  "sample_result": {
-    "id_files": "1_9_0005_03_2_05",
-    "steps": 5,
-    "cut_cnt": 0,
-    "jt": 6,
-    "dt_cum": 130028324.87842539,
-    "sinuo_final": 1.0001052460805833,
-    "sinuosity_history_csv": "Output/1_9_0005_03_2_05/files/sinuosity_history_1_9_0005_03_2_05.csv",
-    "sinuosity_history_plot": "Output/1_9_0005_03_2_05/plot/sinuosity_history_1_9_0005_03_2_05.png",
-    "sinuosity_stability": {
-      "state": "stable",
-      "stable": true,
-      "quasi_stable": true,
-      "window_requested": 100,
-      "window_used": 6,
-      "rel_span": 8.097452981682685e-06,
-      "rel_last_change": 3.385492185124532e-07,
-      "rel_trend_per_step": 1.0620583041942642e-06,
-      "sinuo_final": 1.0001052460805833
-    }
-  }
+  "id_files": "1_9_0005_03_2_05",
+  "steps": 5,
+  "cut_cnt": 0,
+  "jt": 6,
+  "dt_cum": 130028324.87842539,
+  "sinuo_final": 1.0001052460805833,
+  "sinuosity_stability": {
+    "state": "stable",
+    "stable": true,
+    "quasi_stable": true,
+    "window_requested": 100,
+    "window_used": 6,
+    "rel_span": 8.097452981682685e-06,
+    "rel_last_change": 3.385492185124532e-07,
+    "rel_trend_per_step": 1.0620583041942642e-06,
+    "sinuo_final": 1.0001052460805833
+  },
+  "stop_reason": "stop criteria reached: max_steps",
+  "stop_criteria_reached": [
+    "max_steps"
+  ]
 }
