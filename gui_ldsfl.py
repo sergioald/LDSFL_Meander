@@ -91,6 +91,8 @@ HELP = {
     'numba_parallel': 'Enable Numba parallel kernels where supported. This can speed up runs but may oversubscribe CPU cores when combined with flow_paral=1.',
     'numba_fastmath': 'Allow Numba fast-math optimizations. This may improve speed slightly at the cost of stricter IEEE math behavior.',
     'cstab': 'Stability coefficient controlling timestep size. Smaller values are safer but slower; larger values are faster but may become unstable.',
+    'sinuo_window': 'Number of stored sinuosity values used for stable/quasi-stable assessment. A default of 100 is conservative for long runs.',
+    'sinuo_rel_tol': 'Relative tolerance used for sinuosity stability. Default 0.005 means about 0.5 percent over the stability window.',
     'max_sim_time': 'Maximum cumulative simulated time before stopping. Set 0 to disable this criterion.',
     'stop_mode': 'Choose how multiple enabled stop criteria are combined. First = stop when any enabled criterion triggers. All = stop only when all enabled criteria have triggered.',
     'stop_on_steps': 'Enable or disable the maximum-steps stop criterion.',
@@ -203,6 +205,16 @@ class LdslGui(tk.Tk):
         self.numba_parallel_var = tk.BooleanVar(value=False)
         self.numba_fastmath_var = tk.BooleanVar(value=False)
         self.cstab_var = tk.StringVar(value='0.01')
+        self.sinuo_window_var = tk.StringVar(value='100')
+        self.sinuo_rel_tol_var = tk.StringVar(value='0.005')
+        self.sinuo_state_var = tk.StringVar(value='Not available')
+        self.sinuo_current_var = tk.StringVar(value='—')
+        self.sinuo_window_used_var = tk.StringVar(value='—')
+        self.sinuo_rel_span_var = tk.StringVar(value='—')
+        self.sinuo_rel_trend_var = tk.StringVar(value='—')
+        self.sinuosity_figure = Figure(figsize=(6.6, 2.6), dpi=100)
+        self.sinuosity_ax = self.sinuosity_figure.add_subplot(111)
+        self.sinuosity_canvas = None
 
         self.beta_var = tk.StringVar(value='9.0')
         self.ds_var = tk.StringVar(value='0.005')
@@ -463,6 +475,8 @@ class LdslGui(tk.Tk):
         numba_fastmath_btn = ttk.Checkbutton(advanced, text='Numba fastmath', variable=self.numba_fastmath_var)
         numba_fastmath_btn.grid(row=6, column=0, columnspan=2, sticky='w')
         ToolTip(numba_fastmath_btn, HELP['numba_fastmath'])
+        self._entry_row(advanced, 7, 'Sinuosity stability window', self.sinuo_window_var, HELP['sinuo_window'])
+        self._entry_row(advanced, 8, 'Sinuosity relative tolerance', self.sinuo_rel_tol_var, HELP['sinuo_rel_tol'])
 
         stop_frame = ttk.LabelFrame(self.run_tab, text='Stop criteria', padding=10)
         stop_frame.pack(fill='x', pady=(8, 8))
@@ -498,8 +512,23 @@ class LdslGui(tk.Tk):
 
         diag_frame = ttk.LabelFrame(self.run_tab, text='Validation and diagnostic notes', padding=10)
         diag_frame.pack(fill='both', expand=True)
-        self.validation_box = tk.Text(diag_frame, height=16, width=100)
+        self.validation_box = tk.Text(diag_frame, height=12, width=100)
         self.validation_box.pack(fill='both', expand=True)
+
+        sinuo_frame = ttk.LabelFrame(self.run_tab, text='Sinuosity stability', padding=10)
+        sinuo_frame.pack(fill='x', pady=(8, 0))
+        metrics = ttk.Frame(sinuo_frame)
+        metrics.pack(fill='x', pady=(0, 6))
+        self._metric_label(metrics, 0, 'State', self.sinuo_state_var)
+        self._metric_label(metrics, 1, 'Current sinuo', self.sinuo_current_var)
+        self._metric_label(metrics, 2, 'Window used', self.sinuo_window_used_var)
+        self._metric_label(metrics, 3, 'Rel. span', self.sinuo_rel_span_var)
+        self._metric_label(metrics, 4, 'Rel. trend/step', self.sinuo_rel_trend_var)
+        ttk.Button(metrics, text='Refresh sinuosity', command=self._refresh_sinuosity_panel).grid(row=0, column=10, padx=(16, 0), sticky='e')
+        metrics.columnconfigure(10, weight=1)
+        self.sinuosity_canvas = FigureCanvasTkAgg(self.sinuosity_figure, master=sinuo_frame)
+        self.sinuosity_canvas.get_tk_widget().pack(fill='x')
+        self._clear_sinuosity_panel()
 
     def _build_plot_tab(self) -> None:
         info = ttk.Label(self.plot_tab, text='This tab shows the initial centerline, the latest live snapshot, and the final geometry after the run completes.')
@@ -550,6 +579,12 @@ class LdslGui(tk.Tk):
     def _preview_row(self, parent, row, label, textvar):
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky='w', padx=(0, 8), pady=1)
         ttk.Label(parent, textvariable=textvar).grid(row=row, column=1, sticky='w', pady=1)
+
+    def _metric_label(self, parent, column: int, label: str, var: tk.StringVar):
+        box = ttk.Frame(parent)
+        box.grid(row=0, column=column, sticky='w', padx=(0, 14))
+        ttk.Label(box, text=label).pack(anchor='w')
+        ttk.Label(box, textvariable=var, font=('TkDefaultFont', 9, 'bold')).pack(anchor='w')
 
     def _bind_preview_updates(self):
         watched = [
@@ -691,6 +726,8 @@ class LdslGui(tk.Tk):
             numba_parallel=bool(self.numba_parallel_var.get()),
             numba_fastmath=bool(self.numba_fastmath_var.get()),
             cstab=float(self.cstab_var.get()),
+            sinuo_window=int(self.sinuo_window_var.get()),
+            sinuo_rel_tol=float(self.sinuo_rel_tol_var.get()),
         )
         kwargs = {
             'mode': self.mode_var.get(),
@@ -812,6 +849,8 @@ class LdslGui(tk.Tk):
                     'live_every': self.live_every_var.get(),
                     'show_original_plot': bool(self.show_original_plot_var.get()),
                     'show_completion_popup': bool(self.show_completion_popup_var.get()),
+                    'sinuo_window': self.sinuo_window_var.get(),
+                    'sinuo_rel_tol': self.sinuo_rel_tol_var.get(),
                 },
             }
             path = filedialog.asksaveasfilename(title='Save LDSFL-Meander config', defaultextension='.json', filetypes=[('JSON files', '*.json')])
@@ -836,6 +875,8 @@ class LdslGui(tk.Tk):
             self.live_every_var.set(str(gui_state.get('live_every', '5')))
             self.show_original_plot_var.set(bool(gui_state.get('show_original_plot', True)))
             self.show_completion_popup_var.set(bool(gui_state.get('show_completion_popup', True)))
+            self.sinuo_window_var.set(str(gui_state.get('sinuo_window', getattr(cfg.run, 'sinuo_window', 100))))
+            self.sinuo_rel_tol_var.set(str(gui_state.get('sinuo_rel_tol', getattr(cfg.run, 'sinuo_rel_tol', 0.005))))
             self._sync_mode()
             self._sync_advanced()
             self._sync_dimensional_fields()
@@ -876,6 +917,8 @@ class LdslGui(tk.Tk):
         self.numba_parallel_var.set(bool(cfg.run.numba_parallel))
         self.numba_fastmath_var.set(bool(cfg.run.numba_fastmath))
         self.cstab_var.set(str(cfg.run.cstab))
+        self.sinuo_window_var.set(str(getattr(cfg.run, 'sinuo_window', 100)))
+        self.sinuo_rel_tol_var.set(str(getattr(cfg.run, 'sinuo_rel_tol', 0.005)))
         if cfg.dimensionless is not None:
             self.beta_var.set(str(cfg.dimensionless.beta))
             self.ds_var.set(str(cfg.dimensionless.ds))
@@ -960,6 +1003,8 @@ class LdslGui(tk.Tk):
                 output_units=scales['resolved_output_units'],
                 output_length_scale=scales['output_length_scale'],
                 output_velocity_scale=scales['output_velocity_scale'],
+                sinuo_window=config.run.sinuo_window,
+                sinuo_rel_tol=config.run.sinuo_rel_tol,
             )
             result = results[0]
             if config.run.save_run_manifest:
@@ -992,6 +1037,7 @@ class LdslGui(tk.Tk):
                     if self.last_snapshot_path != latest:
                         self.last_snapshot_path = latest
                         self._update_plot(snapshot_path=latest, final=False)
+                        self._refresh_sinuosity_panel(log_errors=False)
                         self._log(f'Updated live plot from snapshot {latest.name}')
         except Exception as exc:
             self._log(f'Live preview skipped: {exc}')
@@ -1034,6 +1080,7 @@ class LdslGui(tk.Tk):
             self.after_cancel(self.monitor_job)
             self.monitor_job = None
         self._refresh_plot_from_outputs()
+        self._refresh_sinuosity_panel()
         self._save_overlay_plot_if_requested()
         self.notebook.select(self.plot_tab)
         self._notify_run_end('LDSFL-Meander simulation finished', f"Simulation finished.\n\nReason: {reason}\nSteps: {result.get('steps')}\nCutoffs: {result.get('cut_cnt')}")
@@ -1116,6 +1163,81 @@ class LdslGui(tk.Tk):
         self.ax.grid(True, alpha=0.3)
         self.figure.tight_layout(rect=[0.02, 0.02, 0.98, 0.92])
         self.plot_canvas.draw_idle()
+
+    def _sinuosity_history_path(self) -> Path | None:
+        id_files = None
+        if self.latest_result is not None:
+            id_files = self.latest_result.get('id_files')
+        elif self.current_id_files is not None:
+            id_files = self.current_id_files
+        if not id_files:
+            return None
+        return Path(self.workspace_var.get()) / 'Output' / id_files / 'files' / f'sinuosity_history_{id_files}.csv'
+
+    def _clear_sinuosity_panel(self):
+        self.sinuosity_ax.clear()
+        self.sinuosity_ax.set_title('Sinuosity evolution')
+        self.sinuosity_ax.set_xlabel('Step [-]')
+        self.sinuosity_ax.set_ylabel('Sinuosity [-]')
+        self.sinuosity_ax.grid(True, alpha=0.3)
+        self.sinuo_state_var.set('Not available')
+        self.sinuo_current_var.set('—')
+        self.sinuo_window_used_var.set('—')
+        self.sinuo_rel_span_var.set('—')
+        self.sinuo_rel_trend_var.set('—')
+        self.sinuosity_figure.tight_layout()
+        if self.sinuosity_canvas is not None:
+            self.sinuosity_canvas.draw_idle()
+
+    def _format_metric(self, value):
+        try:
+            value = float(value)
+            if value != value:
+                return '—'
+            return f'{value:.4g}'
+        except Exception:
+            return '—'
+
+    def _update_sinuosity_metrics(self, stability: dict | None):
+        if not stability:
+            self.sinuo_state_var.set('Not available')
+            self.sinuo_current_var.set('—')
+            self.sinuo_window_used_var.set('—')
+            self.sinuo_rel_span_var.set('—')
+            self.sinuo_rel_trend_var.set('—')
+            return
+        self.sinuo_state_var.set(str(stability.get('state', 'not available')))
+        self.sinuo_current_var.set(self._format_metric(stability.get('sinuo_final')))
+        self.sinuo_window_used_var.set(str(stability.get('window_used', '—')))
+        self.sinuo_rel_span_var.set(self._format_metric(stability.get('rel_span')))
+        self.sinuo_rel_trend_var.set(self._format_metric(stability.get('rel_trend_per_step')))
+
+    def _refresh_sinuosity_panel(self, log_errors: bool = True):
+        try:
+            history_path = self._sinuosity_history_path()
+            if history_path is None or not history_path.exists():
+                if self.latest_result is not None:
+                    self._update_sinuosity_metrics(self.latest_result.get('sinuosity_stability'))
+                return
+            df = pd.read_csv(history_path)
+            if 'step' not in df.columns or 'sinuo' not in df.columns:
+                raise ValueError(f'Sinuosity history file does not contain step and sinuo columns: {history_path}')
+            self.sinuosity_ax.clear()
+            self.sinuosity_ax.plot(df['step'].to_numpy(), df['sinuo'].to_numpy(), linewidth=1.7)
+            self.sinuosity_ax.set_title('Sinuosity evolution')
+            self.sinuosity_ax.set_xlabel('Step [-]')
+            self.sinuosity_ax.set_ylabel('Sinuosity [-]')
+            self.sinuosity_ax.grid(True, alpha=0.3)
+            self.sinuosity_figure.tight_layout()
+            if self.sinuosity_canvas is not None:
+                self.sinuosity_canvas.draw_idle()
+            if self.latest_result is not None:
+                self._update_sinuosity_metrics(self.latest_result.get('sinuosity_stability'))
+            else:
+                self.sinuo_current_var.set(self._format_metric(df['sinuo'].iloc[-1]))
+        except Exception as exc:
+            if log_errors:
+                self._log(f'Sinuosity panel refresh skipped: {exc}')
 
     def _show_about(self):
         messagebox.showinfo(

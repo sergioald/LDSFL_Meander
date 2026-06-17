@@ -68,7 +68,7 @@ Installation, repository structure, command-line and GUI workflows, notation pol
 \end{tcolorbox}
 \vfill
 \includegraphics[width=0.42\textwidth]{figures/cover.png}\\[1.2em]
-{\large Updated manual for LDSFL-Meander version 0.6.3\\[0.4em]}
+{\large Updated manual for LDSFL-Meander version 0.6.4\\[0.4em]}
 {\normalsize \today}
 \end{titlepage}
 
@@ -464,6 +464,8 @@ Following \cite{LanzoniSeminara2006}, the following boundary conditions can be s
 	\item \textbf{Flow workers} -- worker count for the parallel-flow option.
 	\item \textbf{Numba parallel} -- enable Numba parallel kernels where supported.
 	\item \textbf{Numba fastmath} -- enable  Numba fast-math optimisations.
+	\item \textbf{Sinuosity stability window} -- number of stored sinuosity values used to decide whether the planform is stable or quasi-stable. The recommended default is 100.
+	\item \textbf{Sinuosity relative tolerance} -- tolerance used for the stability check. The default value 0.005 corresponds to about 0.5\% relative spread.
 \end{itemize}
 
 \subsection{Recommended default settings}
@@ -524,12 +526,21 @@ The GUI can also save:
 \end{itemize}
 
 The run controls also include an \textbf{Output units} selector:
-
 \begin{itemize}[leftmargin=1.2em]
 	\item \textbf{dimensionless} keeps the saved solver outputs in the internal reduced variables used by the code,
-	\item \textbf{dimensional} rescales the saved coordinates and  velocity field back to dimensional form when dimensional input mode is used. Lengths are rescaled with the same geometry scale selected in the GUI (typically $B_0$ for horizontal coordinates and $D_0$ for vertical quantities), while velocity components rescaled with the resolved reference velocity $U_0$.
+	\item \textbf{dimensional} rescales saved coordinates and the saved velocity field back to dimensional form when dimensional input mode is used. Lengths are rescaled with the same geometry scale selected in the GUI (typically $B_0$), while velocity is rescaled with the resolved reference velocity $U_0$.
 \end{itemize}
 If dimensional outputs are requested while only dimensionless inputs are provided, the code falls back to dimensionless outputs.
+
+\subsection{Sinuosity stability diagnostic}
+
+The GUI includes a \textbf{Sinuosity stability} panel. This panel plots the current history of step number versus sinuosity, and reports a qualitative state: \textbf{not stable}, \textbf{quasi-stable}, or \textbf{stable}. The default window uses the last 100 stored sinuosity values. The stability assessment combines two measures: the relative span of sinuosity over the window and the relative trend per step obtained from a straight-line fit. This is intended as a practical convergence diagnostic for identifying when planform sinuosity has become approximately stable.
+
+The solver also saves this diagnostic in the output folder as:
+\begin{itemize}[leftmargin=1.2em]
+	\item \texttt{files/sinuosity\_history\_<id\_files>.csv},
+	\item \texttt{plot/sinuosity\_history\_<id\_files>.png}.
+\end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Completion popup}
@@ -651,7 +662,7 @@ $c_{f0}$         & Friction coefficient computed from the user-supplied friction
 	$\kappa(s)$ & Curvature distribution of the channel centreline & (m$^{-1}$ or -)  \\
 	$B(s)$ & Channel half-width distribution (in future variable-width code extensions) & (m) \\
 	$U(s,n)$ & Streamwise depth-averaged velocity & (m/s or -) \\
-	$V(s,n)$ & Transverse depth-averaged velocity  & (m/s or -) \\
+	$V_0(s,n)$ & Transverse depth-averaged velocity  & (m/s or -) \\
 	$D(s,n)$ & Local depth  & (m or -) \\
 	$h(s,n)$ & Free-surface elevation & (m or -)  \\
 \bottomrule
@@ -732,7 +743,7 @@ The basic build command is:
 
 \vspace{0.5em}
 
-\noindent Lopez Dubon, S., Sgarabotto, A., Frascati, A., Lanzoni, S. (2026). LDSFL-Meander: A python code for a reduced two-dimensional morphodynamic model for meandering rivers. [\textit{Software}]. GitHub. doi: \texttt{10.5281/zenodo.19945291}
+\noindent Lopez Dubon, S., Sgarabotto, A., Frascati, A., Lanzoni, S. (2026). LDSFL-Meander: A python code for a reduced two-dimensional morphodynamic model for meandering rivers. [\textit{Software}]. GitHub. doi: \texttt{xxxxxx}
 
 \vspace{1.0 em}
 
@@ -740,11 +751,11 @@ The basic build command is:
 
 \vspace{0.5em}
 
-\noindent Lopez Dubon, S. and Lanzoni, S. (2019). Meandering evolution and width variations: A physics-statistics-based modeling approach. \textit{Water Resources Research}, 55(1), 76--94. doi: \texttt{10.1029/2018WR023639}
+\noindent Frascati, A. and Lanzoni, S. (2009). Morphodynamic regime and long-term evolutionof meandering rivers. \textit{Journal of Geophysical Research: Earth Surface}, 114(F2), 1--12. doi: \texttt{10.1029/2008JF001101} 
 
 \vspace{1.0 em}
 
-\noindent Frascati, A. and Lanzoni, S. (2009). Morphodynamic regime and long-term evolutionof meandering rivers. \textit{Journal of Geophysical Research: Earth Surface}, 114(F2), 1--12. doi: \texttt{10.1029/2008JF001101} 
+\noindent Lopez Dubon, S. and Lanzoni, S. (2019). Meandering evolution and width variations: A physics-statistics-based modeling approach. \textit{Water Resources Research}, 55(1), 76--94. doi: \texttt{10.1029/2018WR023639}
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 \section{License}

@@ -1,16 +1,16 @@
 cff-version: 1.2.0
-title: "LDSFL-Meander"
-message: "If you use this software, please cite it as follows."
+title: "LDSFL-Meander: reduced meander model by Lopez-Dubon, Sgarabotto, Frascati and Lanzoni"
+message: "If you use this software, please cite it using the metadata in this file."
 type: software
-version: "0.6.3.1"
-doi: 10.5281/zenodo.19945292
 authors:
   - family-names: "Lopez-Dubon"
-    given-names: "Sergio"
   - family-names: "Sgarabotto"
-    given-names: "Leonardo"
   - family-names: "Frascati"
-    given-names: "Alessandro"
   - family-names: "Lanzoni"
-    given-names: "Stefano"
+version: 0.6.4
+abstract: >-
+  LDSFL-Meander is a reduced meander-morphodynamics model with a Python solver,
+  command-line entry points, and a desktop GUI for dimensionless or dimensional
+  parameter setup, geometry scaling/filtering by B_0, flexible stop criteria, output-unit selection, and
+  plot-based run monitoring, and step-vs-sinuosity stability diagnostics.
 license: "MIT"

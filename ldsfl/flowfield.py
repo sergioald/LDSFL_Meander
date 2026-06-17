@@ -653,41 +653,6 @@ def _run_modes_numba(
 
 
 
-def compute_lambda_diagnostics(
-    Cf0: float,
-    CT: float,
-    CD: float,
-    phiT: float,
-    phiD: float,
-    beta: float,
-    rpic: float,
-    theta0: float,
-    F0: float,
-    Mdat: int,
-) -> dict:
-    """Return Fourier-mode eigenvalue diagnostics used by the free-surface solver.
-
-    The returned lambdas are the quartic roots for each mode, ordered with the
-    same MATLAB-style swaps used inside the flow solver. Decay lengths are
-    reported as 1/abs(real(lambda)); purely imaginary modes get ``inf``.
-    """
-    (
-        Am, lamb1, lamb2, lamb3, lamb4,
-        *_rest,
-    ) = _precompute_modes(Cf0, CT, CD, phiT, phiD, beta, rpic, theta0, F0, Mdat)
-
-    lambdas = np.column_stack([lamb1, lamb2, lamb3, lamb4]).astype(np.complex128, copy=False)
-    real_parts = np.real(lambdas)
-    decay_lengths = np.full(real_parts.shape, np.inf, dtype=np.float64)
-    mask = np.abs(real_parts) > 1.0e-14
-    decay_lengths[mask] = 1.0 / np.abs(real_parts[mask])
-
-    return {
-        "mode": np.arange(1, int(Mdat) + 1, dtype=np.int64),
-        "Am": np.asarray(Am, dtype=np.float64),
-        "lambdas": lambdas,
-        "decay_lengths": decay_lengths,
-    }
 
 def parall_u_free(
     c: np.ndarray,

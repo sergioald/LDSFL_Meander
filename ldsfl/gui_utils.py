@@ -204,6 +204,8 @@ class RunControls:
     numba_parallel: bool = False
     numba_fastmath: bool = False
     cstab: float = 0.01
+    sinuo_window: int = 100
+    sinuo_rel_tol: float = 5.0e-3
 
 
 @dataclass
@@ -429,6 +431,8 @@ def preview_case_config(config: GuiCaseConfig) -> dict:
         "resample_upper_factor": float(config.geometry.resample_upper_factor),
         "resample_lower_factor": float(config.geometry.resample_lower_factor),
         "cstab": float(config.run.cstab),
+        "sinuo_window": int(config.run.sinuo_window),
+        "sinuo_rel_tol": float(config.run.sinuo_rel_tol),
         "stop_mode": config.run.stop_mode,
         "stop_on_steps": bool(config.run.stop_on_steps),
         "stop_on_time": bool(config.run.stop_on_time),
@@ -463,6 +467,10 @@ def validate_case_config(config: GuiCaseConfig) -> list[str]:
         raise ValueError("Maximum simulated time must be >= 0")
     if config.run.cstab <= 0:
         raise ValueError("cstab must be > 0")
+    if config.run.sinuo_window < 2:
+        raise ValueError("Sinuosity stability window must be >= 2")
+    if config.run.sinuo_rel_tol <= 0.0:
+        raise ValueError("Sinuosity relative tolerance must be > 0")
     if not (config.run.stop_on_steps or config.run.stop_on_time or config.run.stop_on_cutoffs):
         raise ValueError("At least one stop criterion must be enabled.")
     if config.run.stop_on_steps and config.run.max_steps == 0:

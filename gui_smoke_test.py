@@ -29,7 +29,7 @@ def main() -> None:
             mode='dimensionless',
             xy_csv=xy,
             workspace_dir=work,
-            run=RunControls(case_id=11, max_steps=3, max_sim_time=1.0e9, stop_on_steps=True, stop_on_time=True, stop_on_cutoffs=True, stop_mode='first', nprint=2, max_cut=1, do_plots=False, cstab=0.01),
+            run=RunControls(case_id=11, max_steps=3, max_sim_time=1.0e9, stop_on_steps=True, stop_on_time=True, stop_on_cutoffs=True, stop_mode='first', nprint=2, max_cut=1, do_plots=False, cstab=0.01, sinuo_window=100, sinuo_rel_tol=0.005),
             dimensionless=DimensionlessInputs(beta=9.0, ds=0.005, theta0=0.3, flagbed=2, rpic_0=0.5, Mdat=6),
             geometry=GeometrySettings(mode='as_is', custom_scale=None, smoothing_enabled=True, smoothing_factor=8.0, neck_cutoff_interval=3),
         )
@@ -40,6 +40,7 @@ def main() -> None:
         assert restored.run.case_id == cfg_dimless.run.case_id
         assert restored.run.stop_mode == 'first'
         assert abs(restored.run.cstab - 0.01) < 1e-12
+        assert restored.run.sinuo_window == 100
         summary = write_case_inputs(cfg_dimless)
         assert Path(summary['parameter_csv']).exists()
         assert Path(summary['copied_xy_csv']).exists()
@@ -55,6 +56,7 @@ def main() -> None:
             do_plots=False,
         )
         assert results[0]['steps'] == 3
+        assert 'sinuosity_stability' in results[0]
 
         cfg_direct = GuiCaseConfig(
             mode='dimensional',

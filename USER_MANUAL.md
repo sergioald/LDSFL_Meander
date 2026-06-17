@@ -53,10 +53,16 @@ LDSFL-Meander writes case outputs under `Output/<id_files>/`, including:
 - `xyu/`
 - `xy_cut/`
 - `plot/`
-- `files/` (saved run variables)
+- `files/` (saved run variables and sinuosity history)
 - `run_manifest.json`
 - `gui_final_overlay.png`
+- `sinuosity_history_<id_files>.csv` and `sinuosity_history_<id_files>.png` for step-vs-sinuosity stability checks
 
 ## 7. Full manual
 
 See `docs/LDSFL_Meander_user_manual.pdf` for the full LaTeX manual.
+
+
+## 8. Sinuosity stability
+
+The GUI includes a sinuosity stability panel. It plots step number versus sinuosity and reports whether the recent evolution is not stable, quasi-stable, or stable. The default stability window is 100 stored values. The assessment uses both the relative span of sinuosity over the window and the fitted relative trend per step, so it is more robust than checking only the last two values.

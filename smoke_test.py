@@ -48,6 +48,8 @@ def main() -> None:
             "cut_cnt": result["cut_cnt"],
             "jt": result["jt"],
             "dt_cum": result["dt_cum"],
+            "sinuo_final": result.get("sinuo_final"),
+            "sinuosity_stability": result.get("sinuosity_stability"),
         }
         print(json.dumps(summary, indent=2))
         print("Smoke test passed.")

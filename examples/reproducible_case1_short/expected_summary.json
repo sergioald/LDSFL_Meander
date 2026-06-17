@@ -6,24 +6,19 @@
     "cut_cnt": 0,
     "jt": 6,
     "dt_cum": 130028324.87842539,
-    "lambda_diag_path": "Output/1_9_0005_03_2_05/files/lambda_diag_1_9_0005_03_2_05.csv",
-    "lambda_first_mode": [
-      [
-        0.746447945955786,
-        0.0
-      ],
-      [
-        -0.011674626938569955,
-        -0.28127894994440034
-      ],
-      [
-        -0.011674626938569955,
-        0.28127894994440034
-      ],
-      [
-        -0.8826201276111001,
-        0.0
-      ]
-    ]
+    "sinuo_final": 1.0001052460805833,
+    "sinuosity_history_csv": "Output/1_9_0005_03_2_05/files/sinuosity_history_1_9_0005_03_2_05.csv",
+    "sinuosity_history_plot": "Output/1_9_0005_03_2_05/plot/sinuosity_history_1_9_0005_03_2_05.png",
+    "sinuosity_stability": {
+      "state": "stable",
+      "stable": true,
+      "quasi_stable": true,
+      "window_requested": 100,
+      "window_used": 6,
+      "rel_span": 8.097452981682685e-06,
+      "rel_last_change": 3.385492185124532e-07,
+      "rel_trend_per_step": 1.0620583041942642e-06,
+      "sinuo_final": 1.0001052460805833
+    }
   }
 }

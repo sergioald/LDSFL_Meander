@@ -4,8 +4,8 @@ from pathlib import Path
 import os
 import warnings
 from time import perf_counter
-import numpy as np
 
+import numpy as np
 from threadpoolctl import threadpool_limits
 
 try:  # optional
@@ -20,7 +20,7 @@ from .flowfield import parall_u_free
 from .flowfield_periodic import parall_u_periodic
 from .evolution import dxdy2, update_parameters
 from .geometry import geometry4
-from .outputs import ensure_dirs, save_xystcu, save_variables, plot_it
+from .outputs import ensure_dirs, save_xystcu, save_variables, plot_it, save_sinuosity_history
 
 
 def make_id_files(case_i: int, beta: float, ds: float, theta0: float, flagbed: int, rpic_0: float) -> str:
@@ -35,7 +35,18 @@ def make_id_files(case_i: int, beta: float, ds: float, theta0: float, flagbed: i
     return ("_".join(parts)).replace(".", "")
 
 
-def _criterion_names(*, steps: int, dt_cum: float, cut_cnt: int, max_steps: int | None, max_sim_time: float | None, max_cutoffs: int | None, stop_on_steps: bool, stop_on_time: bool, stop_on_cutoffs: bool) -> list[str]:
+def _criterion_names(
+    *,
+    steps: int,
+    dt_cum: float,
+    cut_cnt: int,
+    max_steps: int | None,
+    max_sim_time: float | None,
+    max_cutoffs: int | None,
+    stop_on_steps: bool,
+    stop_on_time: bool,
+    stop_on_cutoffs: bool,
+) -> list[str]:
     reached: list[str] = []
     if stop_on_steps and max_steps is not None and max_steps > 0 and steps >= max_steps:
         reached.append("max_steps")
@@ -46,7 +57,14 @@ def _criterion_names(*, steps: int, dt_cum: float, cut_cnt: int, max_steps: int 
     return reached
 
 
-def _should_stop(reached: list[str], *, stop_mode: str, stop_on_steps: bool, stop_on_time: bool, stop_on_cutoffs: bool) -> bool:
+def _should_stop(
+    reached: list[str],
+    *,
+    stop_mode: str,
+    stop_on_steps: bool,
+    stop_on_time: bool,
+    stop_on_cutoffs: bool,
+) -> bool:
     enabled_count = int(stop_on_steps) + int(stop_on_time) + int(stop_on_cutoffs)
     if enabled_count <= 0:
         return False
@@ -56,6 +74,89 @@ def _should_stop(reached: list[str], *, stop_mode: str, stop_on_steps: bool, sto
         return len(reached) == enabled_count
     return len(reached) > 0
 
+
+def _sinuosity_stability_metrics(
+    step_hist,
+    sinuo_hist,
+    *,
+    window: int = 100,
+    rel_tol: float = 5.0e-3,
+) -> dict:
+    """Assess whether sinuosity is stable or quasi-stable.
+
+    The test uses the last ``window`` stored values. Two metrics are reported:
+
+    * relative span: (max - min) / final sinuosity over the window;
+    * relative trend per step: absolute least-squares slope divided by final sinuosity.
+
+    Suggested interpretation:
+
+    * stable: relative span < rel_tol and relative trend per step < rel_tol / window;
+    * quasi-stable: relative span < 2 rel_tol and relative trend per step < 2 rel_tol / window.
+    """
+    steps = np.asarray(step_hist, dtype=np.float64)
+    vals = np.asarray(sinuo_hist, dtype=np.float64)
+    if vals.size == 0:
+        return {
+            "state": "not available",
+            "stable": False,
+            "quasi_stable": False,
+            "window_requested": int(window),
+            "window_used": 0,
+            "rel_span": np.nan,
+            "rel_last_change": np.nan,
+            "rel_trend_per_step": np.nan,
+            "sinuo_final": np.nan,
+        }
+    if vals.size == 1:
+        return {
+            "state": "not enough history",
+            "stable": False,
+            "quasi_stable": False,
+            "window_requested": int(window),
+            "window_used": 1,
+            "rel_span": 0.0,
+            "rel_last_change": 0.0,
+            "rel_trend_per_step": 0.0,
+            "sinuo_final": float(vals[-1]),
+        }
+
+    w = max(2, min(int(window), vals.size))
+    tail = vals[-w:]
+    tail_steps = steps[-w:] if steps.size >= vals.size else np.arange(vals.size - w, vals.size, dtype=np.float64)
+    ref = max(abs(float(tail[-1])), 1.0e-12)
+
+    rel_span = float((tail.max() - tail.min()) / ref)
+    rel_last_change = float(abs(tail[-1] - tail[-2]) / ref)
+
+    x = tail_steps - tail_steps[0]
+    if np.allclose(x, x[0]):
+        slope = 0.0
+    else:
+        slope = float(np.polyfit(x, tail, 1)[0])
+    rel_trend_per_step = float(abs(slope) / ref)
+
+    trend_tol = float(rel_tol) / max(float(w), 1.0)
+    stable = (rel_span < rel_tol) and (rel_trend_per_step < trend_tol)
+    quasi_stable = stable or ((rel_span < 2.0 * rel_tol) and (rel_trend_per_step < 2.0 * trend_tol))
+    if stable:
+        state = "stable"
+    elif quasi_stable:
+        state = "quasi-stable"
+    else:
+        state = "not stable"
+
+    return {
+        "state": state,
+        "stable": bool(stable),
+        "quasi_stable": bool(quasi_stable),
+        "window_requested": int(window),
+        "window_used": int(w),
+        "rel_span": rel_span,
+        "rel_last_change": rel_last_change,
+        "rel_trend_per_step": rel_trend_per_step,
+        "sinuo_final": float(vals[-1]),
+    }
 
 
 def run_case(
@@ -89,6 +190,8 @@ def run_case(
     output_units: str = "dimensionless",
     output_length_scale: float = 1.0,
     output_velocity_scale: float = 1.0,
+    sinuo_window: int = 100,
+    sinuo_rel_tol: float = 5.0e-3,
 ):
     """Run one LDSFL-Meander case using the prepared Input/ files."""
     base_dir = Path(base_dir)
@@ -108,12 +211,27 @@ def run_case(
     rpic, Cf0, CT, CD, phiT, phiD, F0 = resistance_function_flagbed(flagbed, theta0, ds, rpic_0)
 
     var_name = [
-        'jt', 'dt', 'dt_cum', 'rpic', 'Cf0', 'CT', 'CD', 'phiT', 'phiD',
-        'F0', 'deltas', 'wave_l', 'valle_l', 'sinuo', 'beta',
-        'theta0', 'ds', 'cut_cnt'
+        "jt",
+        "dt",
+        "dt_cum",
+        "rpic",
+        "Cf0",
+        "CT",
+        "CD",
+        "phiT",
+        "phiD",
+        "F0",
+        "deltas",
+        "wave_l",
+        "valle_l",
+        "sinuo",
+        "beta",
+        "theta0",
+        "ds",
+        "cut_cnt",
     ]
     save_var_n = 18
-    T_var = np.full((Nprint - 1, save_var_n), np.nan, dtype=np.float64)
+    T_var = np.full((max(Nprint - 1, 1), save_var_n), np.nan, dtype=np.float64)
 
     x_origin = x.copy()
     y_origin = y.copy()
@@ -125,6 +243,10 @@ def run_case(
     cut_cnt = 0
     cnt_f = 1
     Nsold = 0
+
+    step_hist: list[int] = [0]
+    sinuo_hist: list[float] = [float(sinuo)]
+    stability_info = _sinuosity_stability_metrics(step_hist, sinuo_hist, window=sinuo_window, rel_tol=sinuo_rel_tol)
 
     n1 = np.array([1.0], dtype=np.float64)
     flow_workers = int(flow_workers)
@@ -211,8 +333,22 @@ def run_case(
             if str(flow_bc).lower().startswith("per"):
                 t0 = perf_counter() if tim is not None else None
                 U, flag = parall_u_periodic(
-                    c, s, Cf0, CT, CD, phiT, phiD, beta, rpic, theta0, F0,
-                    Mdat, 1, Ns, n1, deltas,
+                    c,
+                    s,
+                    Cf0,
+                    CT,
+                    CD,
+                    phiT,
+                    phiD,
+                    beta,
+                    rpic,
+                    theta0,
+                    F0,
+                    Mdat,
+                    1,
+                    Ns,
+                    n1,
+                    deltas,
                     paral=int(flow_paral),
                     n_workers=n_workers,
                 )
@@ -224,8 +360,22 @@ def run_case(
             else:
                 t0 = perf_counter() if tim is not None else None
                 U, flag = parall_u_free(
-                    c, s, Cf0, CT, CD, phiT, phiD, beta, rpic, theta0, F0,
-                    Mdat, 1, Ns, n1, deltas,
+                    c,
+                    s,
+                    Cf0,
+                    CT,
+                    CD,
+                    phiT,
+                    phiD,
+                    beta,
+                    rpic,
+                    theta0,
+                    F0,
+                    Mdat,
+                    1,
+                    Ns,
+                    n1,
+                    deltas,
                     SL=0,
                     paral=int(flow_paral),
                     n_workers=n_workers,
@@ -241,10 +391,48 @@ def run_case(
 
             if (jt % Nprint) == 0:
                 t0s = perf_counter() if tim is not None else None
-                save_xystcu(out_dir, x, y, s, th, c, U, Ntstep, jt, id_files, cut_cnt, output_units=output_units, length_scale=output_length_scale, velocity_scale=output_velocity_scale)
+                save_xystcu(
+                    out_dir,
+                    x,
+                    y,
+                    s,
+                    th,
+                    c,
+                    U,
+                    Ntstep,
+                    jt,
+                    id_files,
+                    cut_cnt,
+                    output_units=output_units,
+                    length_scale=output_length_scale,
+                    velocity_scale=output_velocity_scale,
+                )
                 if do_plots:
-                    plot_it(out_dir, x_origin, y_origin, x, y, id_files, jt, Ntstep, cut_cnt, output_units=output_units, length_scale=output_length_scale)
-                save_variables(out_dir, T_var, Ntstep, jt, var_name, id_files, cut_cnt, output_units=output_units, length_scale=output_length_scale)
+                    plot_it(
+                        out_dir,
+                        x_origin,
+                        y_origin,
+                        x,
+                        y,
+                        id_files,
+                        jt,
+                        Ntstep,
+                        cut_cnt,
+                        output_units=output_units,
+                        length_scale=output_length_scale,
+                    )
+                save_variables(
+                    out_dir,
+                    T_var,
+                    Ntstep,
+                    jt,
+                    var_name,
+                    id_files,
+                    cut_cnt,
+                    output_units=output_units,
+                    length_scale=output_length_scale,
+                )
+                save_sinuosity_history(out_dir, id_files, step_hist, sinuo_hist)
                 T_var[:] = np.nan
                 cnt_f = 1
                 if tim is not None and t0s is not None:
@@ -299,14 +487,34 @@ def run_case(
             t0u = perf_counter() if tim is not None else None
             rpic, Cf0, CT, CD, phiT, phiD, F0 = resistance_function_flagbed(flagbed, theta0, ds, rpic_0)
             beta, theta0, ds = update_parameters(
-                Cf0_old, Cf0, wave_l_old, wave_l, valle_l_old, valle_l, beta, ds, theta0
+                Cf0_old,
+                Cf0,
+                wave_l_old,
+                wave_l,
+                valle_l_old,
+                valle_l,
+                beta,
+                ds,
+                theta0,
             )
             if tim is not None and t0u is not None:
                 tim["update"] += float(perf_counter() - t0u)
 
+            steps += 1
+            step_hist.append(int(steps))
+            sinuo_hist.append(float(sinuo))
+            stability_info = _sinuosity_stability_metrics(
+                step_hist,
+                sinuo_hist,
+                window=sinuo_window,
+                rel_tol=sinuo_rel_tol,
+            )
+
             jt += 1
             cnt_f += 1
-            steps += 1
+
+    save_sinuosity_history(out_dir, id_files, step_hist, sinuo_hist)
+    stability_info = _sinuosity_stability_metrics(step_hist, sinuo_hist, window=sinuo_window, rel_tol=sinuo_rel_tol)
 
     return {
         "id_files": id_files,
@@ -326,8 +534,9 @@ def run_case(
         "output_units": output_units,
         "output_length_scale": output_length_scale,
         "output_velocity_scale": output_velocity_scale,
+        "sinuo_final": float(sinuo_hist[-1]),
+        "sinuosity_stability": stability_info,
     }
-
 
 
 def run_project(
