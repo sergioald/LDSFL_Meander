@@ -301,13 +301,3 @@ LDSFL-Meander is named after and authored by:
 
 ---
 
-## Recommended release workflow
-
-For GitHub and Zenodo releases:
-
-1. update source files and documentation,
-2. run the smoke tests,
-3. commit and push to GitHub,
-4. create a GitHub release,
-5. let Zenodo archive the release and mint a version DOI,
-6. use the Zenodo concept DOI for the project and the version DOI for exact reproducibility.
