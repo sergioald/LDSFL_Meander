@@ -163,6 +163,7 @@ class LdslGui(tk.Tk):
         self.current_id_files = None
         self.current_xyu_dir = None
         self.last_snapshot_path = None
+        self.last_sinuosity_history_mtime = None
         self.latest_result = None
         self.latest_config = None
         self.initial_xy = None
@@ -516,7 +517,8 @@ class LdslGui(tk.Tk):
         self.validation_box.pack(fill='both', expand=True)
 
         sinuo_frame = ttk.LabelFrame(self.run_tab, text='Sinuosity stability', padding=10)
-        sinuo_frame.pack(fill='x', pady=(8, 0))
+        # Keep this panel above the large text diagnostics so it remains visible.
+        sinuo_frame.pack(fill='x', pady=(0, 8), before=diag_frame)
         metrics = ttk.Frame(sinuo_frame)
         metrics.pack(fill='x', pady=(0, 6))
         self._metric_label(metrics, 0, 'State', self.sinuo_state_var)
@@ -959,6 +961,7 @@ class LdslGui(tk.Tk):
         self.current_id_files = compute_id_files(config)
         self.current_xyu_dir = Path(config.workspace_dir) / 'Output' / self.current_id_files / 'xyu'
         self.last_snapshot_path = None
+        self.last_sinuosity_history_mtime = None
         self.latest_result = None
         self.latest_config = config
         self.final_xy = None
@@ -1037,8 +1040,16 @@ class LdslGui(tk.Tk):
                     if self.last_snapshot_path != latest:
                         self.last_snapshot_path = latest
                         self._update_plot(snapshot_path=latest, final=False)
-                        self._refresh_sinuosity_panel(log_errors=False)
                         self._log(f'Updated live plot from snapshot {latest.name}')
+
+            # The sinuosity history is written independently of the live x/y snapshot.
+            # Refresh it whenever its CSV modification time changes.
+            history_path = self._sinuosity_history_path()
+            if history_path is not None and history_path.exists():
+                mtime = history_path.stat().st_mtime
+                if self.last_sinuosity_history_mtime != mtime:
+                    self.last_sinuosity_history_mtime = mtime
+                    self._refresh_sinuosity_panel(log_errors=False)
         except Exception as exc:
             self._log(f'Live preview skipped: {exc}')
         finally:
@@ -1189,6 +1200,76 @@ class LdslGui(tk.Tk):
         if self.sinuosity_canvas is not None:
             self.sinuosity_canvas.draw_idle()
 
+    def _compute_sinuosity_stability_from_arrays(self, steps, values) -> dict:
+        steps = np.asarray(steps, dtype=np.float64)
+        vals = np.asarray(values, dtype=np.float64)
+        try:
+            window = int(self.sinuo_window_var.get())
+        except Exception:
+            window = 100
+        try:
+            rel_tol = float(self.sinuo_rel_tol_var.get())
+        except Exception:
+            rel_tol = 5.0e-3
+
+        if vals.size == 0:
+            return {
+                'state': 'not available',
+                'stable': False,
+                'quasi_stable': False,
+                'window_requested': int(window),
+                'window_used': 0,
+                'rel_span': np.nan,
+                'rel_last_change': np.nan,
+                'rel_trend_per_step': np.nan,
+                'sinuo_final': np.nan,
+            }
+        if vals.size == 1:
+            return {
+                'state': 'not enough history',
+                'stable': False,
+                'quasi_stable': False,
+                'window_requested': int(window),
+                'window_used': 1,
+                'rel_span': 0.0,
+                'rel_last_change': 0.0,
+                'rel_trend_per_step': 0.0,
+                'sinuo_final': float(vals[-1]),
+            }
+
+        w = max(2, min(int(window), vals.size))
+        tail = vals[-w:]
+        tail_steps = steps[-w:] if steps.size >= vals.size else np.arange(vals.size - w, vals.size, dtype=np.float64)
+        ref = max(abs(float(tail[-1])), 1.0e-12)
+        rel_span = float((tail.max() - tail.min()) / ref)
+        rel_last_change = float(abs(tail[-1] - tail[-2]) / ref)
+        x = tail_steps - tail_steps[0]
+        if np.allclose(x, x[0]):
+            slope = 0.0
+        else:
+            slope = float(np.polyfit(x, tail, 1)[0])
+        rel_trend_per_step = float(abs(slope) / ref)
+        trend_tol = float(rel_tol) / max(float(w), 1.0)
+        stable = (rel_span < rel_tol) and (rel_trend_per_step < trend_tol)
+        quasi_stable = stable or ((rel_span < 2.0 * rel_tol) and (rel_trend_per_step < 2.0 * trend_tol))
+        if stable:
+            state = 'stable'
+        elif quasi_stable:
+            state = 'quasi-stable'
+        else:
+            state = 'not stable'
+        return {
+            'state': state,
+            'stable': bool(stable),
+            'quasi_stable': bool(quasi_stable),
+            'window_requested': int(window),
+            'window_used': int(w),
+            'rel_span': rel_span,
+            'rel_last_change': rel_last_change,
+            'rel_trend_per_step': rel_trend_per_step,
+            'sinuo_final': float(vals[-1]),
+        }
+
     def _format_metric(self, value):
         try:
             value = float(value)
@@ -1231,10 +1312,17 @@ class LdslGui(tk.Tk):
             self.sinuosity_figure.tight_layout()
             if self.sinuosity_canvas is not None:
                 self.sinuosity_canvas.draw_idle()
-            if self.latest_result is not None:
+            # Compute metrics directly from the CSV so the panel works during a run,
+            # before latest_result is available. After the run, prefer the solver-returned
+            # metrics when they exist.
+            if self.latest_result is not None and self.latest_result.get('sinuosity_stability'):
                 self._update_sinuosity_metrics(self.latest_result.get('sinuosity_stability'))
             else:
-                self.sinuo_current_var.set(self._format_metric(df['sinuo'].iloc[-1]))
+                stability = self._compute_sinuosity_stability_from_arrays(
+                    df['step'].to_numpy(),
+                    df['sinuo'].to_numpy(),
+                )
+                self._update_sinuosity_metrics(stability)
         except Exception as exc:
             if log_errors:
                 self._log(f'Sinuosity panel refresh skipped: {exc}')
