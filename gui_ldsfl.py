@@ -1185,6 +1185,17 @@ class LdslGui(tk.Tk):
             return None
         return Path(self.workspace_var.get()) / 'Output' / id_files / 'files' / f'sinuosity_history_{id_files}.csv'
 
+    def _layout_sinuosity_figure(self):
+        # Avoid tight_layout warnings in the compact embedded Tkinter panel.
+        # Fixed margins are more robust here because the panel is small and is
+        # refreshed repeatedly while the solver is running.
+        self.sinuosity_figure.subplots_adjust(
+            left=0.18,
+            right=0.97,
+            bottom=0.24,
+            top=0.83,
+        )
+
     def _clear_sinuosity_panel(self):
         self.sinuosity_ax.clear()
         self.sinuosity_ax.set_title('Sinuosity evolution')
@@ -1196,7 +1207,7 @@ class LdslGui(tk.Tk):
         self.sinuo_window_used_var.set('—')
         self.sinuo_rel_span_var.set('—')
         self.sinuo_rel_trend_var.set('—')
-        self.sinuosity_figure.tight_layout()
+        self._layout_sinuosity_figure()
         if self.sinuosity_canvas is not None:
             self.sinuosity_canvas.draw_idle()
 
@@ -1309,7 +1320,7 @@ class LdslGui(tk.Tk):
             self.sinuosity_ax.set_xlabel('Step [-]')
             self.sinuosity_ax.set_ylabel('Sinuosity [-]')
             self.sinuosity_ax.grid(True, alpha=0.3)
-            self.sinuosity_figure.tight_layout()
+            self._layout_sinuosity_figure()
             if self.sinuosity_canvas is not None:
                 self.sinuosity_canvas.draw_idle()
             # Compute metrics directly from the CSV so the panel works during a run,
