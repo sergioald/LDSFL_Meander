@@ -13,3 +13,7 @@ dist/
 *.spec
 .DS_Store
 Thumbs.db
+# Test and coverage artifacts
+.coverage
+coverage.xml
+htmlcov/
