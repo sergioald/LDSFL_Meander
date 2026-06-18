@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 
@@ -48,19 +50,21 @@ def test_dxdy2_zero_velocity_uses_fallback_timestep_and_warns():
     assert dt == pytest.approx(0.01)
 
 
-def test_dxdy2_non_finite_velocity_raises():
-    with pytest.raises(FloatingPointError, match="Non-finite migration speed"):
-        dxdy2(
-            1.0,
-            np.array([1.0, np.inf]),
-            np.zeros(2),
-            np.zeros(2),
-            np.zeros(2),
-            deltas=1.0,
-            Nsold=0,
-            Ns=2,
-            jt=1,
-        )
+def test_dxdy2_non_finite_velocity_raises_without_runtime_warning():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        with pytest.raises(FloatingPointError, match="Non-finite migration speed"):
+            dxdy2(
+                1.0,
+                np.array([1.0, np.inf]),
+                np.zeros(2),
+                np.zeros(2),
+                np.zeros(2),
+                deltas=1.0,
+                Nsold=0,
+                Ns=2,
+                jt=1,
+            )
 
 
 def test_update_parameters_identity_case_keeps_values_unchanged():
