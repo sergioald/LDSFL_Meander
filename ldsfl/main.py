@@ -47,6 +47,8 @@ def _criterion_names(
     stop_on_steps: bool,
     stop_on_time: bool,
     stop_on_cutoffs: bool,
+    stop_on_sinuosity_stability: bool = False,
+    sinuosity_stability_reached: bool = False,
 ) -> list[str]:
     reached: list[str] = []
     if stop_on_steps and max_steps is not None and max_steps > 0 and steps >= max_steps:
@@ -55,6 +57,8 @@ def _criterion_names(
         reached.append("max_sim_time")
     if stop_on_cutoffs and max_cutoffs is not None and max_cutoffs > 0 and cut_cnt >= max_cutoffs:
         reached.append("max_cutoffs")
+    if stop_on_sinuosity_stability and bool(sinuosity_stability_reached):
+        reached.append("sinuosity_stability")
     return reached
 
 
@@ -65,8 +69,14 @@ def _should_stop(
     stop_on_steps: bool,
     stop_on_time: bool,
     stop_on_cutoffs: bool,
+    stop_on_sinuosity_stability: bool = False,
 ) -> bool:
-    enabled_count = int(stop_on_steps) + int(stop_on_time) + int(stop_on_cutoffs)
+    enabled_count = (
+        int(stop_on_steps)
+        + int(stop_on_time)
+        + int(stop_on_cutoffs)
+        + int(stop_on_sinuosity_stability)
+    )
     if enabled_count <= 0:
         return False
     if enabled_count == 1:
@@ -195,6 +205,7 @@ def run_case(
     stop_on_steps: bool = True,
     stop_on_time: bool = False,
     stop_on_cutoffs: bool = True,
+    stop_on_sinuosity_stability: bool = False,
     stop_mode: str = "first",
     cstab: float = 0.01,
     geometry_smoothing_enabled: bool = True,
@@ -321,6 +332,10 @@ def run_case(
                 stop_on_steps=bool(stop_on_steps),
                 stop_on_time=bool(stop_on_time),
                 stop_on_cutoffs=bool(stop_on_cutoffs),
+                stop_on_sinuosity_stability=bool(stop_on_sinuosity_stability),
+                sinuosity_stability_reached=bool(
+                    (stability_info.get("equivalence") or {}).get("stable", False)
+                ),
             )
             if _should_stop(
                 reached,
@@ -328,6 +343,7 @@ def run_case(
                 stop_on_steps=bool(stop_on_steps),
                 stop_on_time=bool(stop_on_time),
                 stop_on_cutoffs=bool(stop_on_cutoffs),
+                stop_on_sinuosity_stability=bool(stop_on_sinuosity_stability),
             ):
                 stop_criteria_reached = reached
                 stop_reason = f"stop criteria reached: {', '.join(reached)}"

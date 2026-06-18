@@ -192,6 +192,7 @@ class RunControls:
     stop_on_steps: bool = True
     stop_on_time: bool = False
     stop_on_cutoffs: bool = True
+    stop_on_sinuosity_stability: bool = False
     stop_mode: StopMode = "first"
     do_plots: bool = False
     save_final_overlay: bool = True
@@ -437,6 +438,7 @@ def preview_case_config(config: GuiCaseConfig) -> dict:
         "stop_on_steps": bool(config.run.stop_on_steps),
         "stop_on_time": bool(config.run.stop_on_time),
         "stop_on_cutoffs": bool(config.run.stop_on_cutoffs),
+        "stop_on_sinuosity_stability": bool(config.run.stop_on_sinuosity_stability),
         "max_steps": int(config.run.max_steps),
         "max_sim_time": float(config.run.max_sim_time),
         "max_cut": int(config.run.max_cut),
@@ -471,7 +473,12 @@ def validate_case_config(config: GuiCaseConfig) -> list[str]:
         raise ValueError("Sinuosity stability window must be >= 2")
     if config.run.sinuo_rel_tol <= 0.0:
         raise ValueError("Sinuosity relative tolerance must be > 0")
-    if not (config.run.stop_on_steps or config.run.stop_on_time or config.run.stop_on_cutoffs):
+    if not (
+        config.run.stop_on_steps
+        or config.run.stop_on_time
+        or config.run.stop_on_cutoffs
+        or config.run.stop_on_sinuosity_stability
+    ):
         raise ValueError("At least one stop criterion must be enabled.")
     if config.run.stop_on_steps and config.run.max_steps == 0:
         warnings.append("Step stopping is enabled but max_steps = 0, so the step criterion will never trigger.")
