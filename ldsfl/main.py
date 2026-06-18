@@ -21,6 +21,7 @@ from .flowfield_periodic import parall_u_periodic
 from .evolution import dxdy2, update_parameters
 from .geometry import geometry4
 from .outputs import ensure_dirs, save_xystcu, save_variables, plot_it, save_sinuosity_history
+from .stability import sinuosity_equivalence_stability
 
 
 def make_id_files(case_i: int, beta: float, ds: float, theta0: float, flagbed: int, rpic_0: float) -> str:
@@ -158,6 +159,22 @@ def _sinuosity_stability_metrics(
         "sinuo_final": float(vals[-1]),
     }
 
+def _combined_sinuosity_stability_metrics(
+    step_hist,
+    sinuo_hist,
+    *,
+    window: int = 100,
+    rel_tol: float = 5.0e-3,
+) -> dict:
+    stability = _sinuosity_stability_metrics(step_hist, sinuo_hist, window=window, rel_tol=rel_tol)
+    stability["equivalence"] = sinuosity_equivalence_stability(
+        step_hist,
+        sinuo_hist,
+        transient_step=40_000,
+        drift_tolerance=0.02,
+        confidence=0.90,
+    )
+    return stability
 
 def run_case(
     base_dir: Path,
@@ -248,7 +265,7 @@ def run_case(
 
     step_hist: list[int] = [0]
     sinuo_hist: list[float] = [float(sinuo)]
-    stability_info = _sinuosity_stability_metrics(step_hist, sinuo_hist, window=sinuo_window, rel_tol=sinuo_rel_tol)
+    stability_info = _combined_sinuosity_stability_metrics(step_hist, sinuo_hist, window=sinuo_window, rel_tol=sinuo_rel_tol)
 
     n1 = np.array([1.0], dtype=np.float64)
     flow_workers = int(flow_workers)
