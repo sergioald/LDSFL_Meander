@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ldsfl-meander"
-version = "0.6.3.1"
+version = "0.6.5"
 description = "Reduced morphodynamic model for meandering rivers with command-line and GUI workflows."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
   { name = "Sergio Lopez-Dubon" },
-  { name = "Leonardo Sgarabotto" },
+  { name = "Alessandro Sgarabotto" },
   { name = "Alessandro Frascati" },
   { name = "Stefano Lanzoni" }
 ]
@@ -50,6 +50,9 @@ dev = [
   "pytest-cov",
   "ruff",
   "pre-commit",
+]
+numba = [
+  "numba",
 ]
 
 [tool.setuptools.packages.find]
