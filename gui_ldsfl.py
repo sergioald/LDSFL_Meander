@@ -1355,6 +1355,17 @@ class LdslGui(tk.Tk):
         self._layout_sinuosity_figure()
         if self.sinuosity_canvas is not None:
             self.sinuosity_canvas.draw_idle()
+        # Compute metrics directly from the CSV so the panel works during a run,
+        # before latest_result is available. After the run, prefer the solver-returned
+        # metrics when they exist.
+        if self.latest_result is not None and self.latest_result.get('sinuosity_stability'):
+            self._update_sinuosity_metrics(self.latest_result.get('sinuosity_stability'))
+        else:
+            stability = self._compute_sinuosity_stability_from_arrays(
+                df['step'].to_numpy(),
+                df['sinuo'].to_numpy(),
+            )
+            self._update_sinuosity_metrics(stability)
 
     def _compute_sinuosity_stability_from_arrays(self, steps, values) -> dict:
         steps = np.asarray(steps, dtype=np.float64)
