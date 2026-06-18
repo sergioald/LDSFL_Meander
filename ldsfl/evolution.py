@@ -17,6 +17,25 @@ def dxdy2(ERT: float, U: np.ndarray, x: np.ndarray, y: np.ndarray,
     # Keep the original math, but avoid creating multiple temporary arrays.
     theta = np.asarray(theta, dtype=np.float64)
     U = np.asarray(U, dtype=np.float64)
+    ERT = float(ERT)
+    cstab = float(cstab)
+
+    if not np.isfinite(ERT):
+        raise FloatingPointError(
+            f"Non-finite migration speed encountered in dxdy2: ERT={ERT!r} at jt={jt}"
+        )
+    if not np.all(np.isfinite(U)):
+        raise FloatingPointError(
+            f"Non-finite migration speed encountered in dxdy2: U contains non-finite values at jt={jt}"
+        )
+    if not np.all(np.isfinite(theta)):
+        raise FloatingPointError(
+            f"Non-finite migration speed encountered in dxdy2: theta contains non-finite values at jt={jt}"
+        )
+    if not np.isfinite(cstab):
+        raise FloatingPointError(
+            f"Non-finite timestep stability coefficient encountered in dxdy2: cstab={cstab!r} at jt={jt}"
+        )
 
     dxdtl = np.empty_like(U)
     dydtl = np.empty_like(U)
@@ -24,12 +43,11 @@ def dxdy2(ERT: float, U: np.ndarray, x: np.ndarray, y: np.ndarray,
     np.cos(theta, out=dydtl)
     dxdtl *= U
     dydtl *= U
-    dxdtl *= float(ERT)
-    dydtl *= float(ERT)
+    dxdtl *= ERT
+    dydtl *= ERT
 
     # max(max(dxdtl), max(dydtl)) == max(maximum(dxdtl, dydtl))
     maxCSI = float(max(np.abs(dxdtl).max(), np.abs(dydtl).max()))
-    cstab = float(cstab)
     tiny = 1.0e-14
 
     if not np.isfinite(maxCSI):
