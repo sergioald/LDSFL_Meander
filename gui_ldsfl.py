@@ -12,6 +12,7 @@ from tkinter import filedialog, messagebox, ttk
 import pandas as pd
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+import numpy as np
 
 from ldsfl.gui_utils import (
     DimensionlessInputs,
