@@ -1368,25 +1368,27 @@ class LdslGui(tk.Tk):
         self.sinuosity_ax.set_xlabel('Step [-]')
         self.sinuosity_ax.set_ylabel('Sinuosity [-]')
         self.sinuosity_ax.grid(True, alpha=0.3)
+
         self.sinuo_state_var.set('Not available')
         self.sinuo_current_var.set('—')
         self.sinuo_window_used_var.set('—')
         self.sinuo_rel_span_var.set('—')
         self.sinuo_rel_trend_var.set('—')
+
+        # These variables exist only when the equivalence-metrics panel is enabled.
+        # Guard with hasattr so older/simpler GUI builds still launch cleanly.
+        if hasattr(self, 'sinuo_equiv_state_var'):
+            self.sinuo_equiv_state_var.set('—')
+        if hasattr(self, 'sinuo_equiv_drift_var'):
+            self.sinuo_equiv_drift_var.set('—')
+        if hasattr(self, 'sinuo_equiv_ci_var'):
+            self.sinuo_equiv_ci_var.set('—')
+        if hasattr(self, 'sinuo_equiv_tol_var'):
+            self.sinuo_equiv_tol_var.set('±0.02')
+
         self._layout_sinuosity_figure()
         if self.sinuosity_canvas is not None:
             self.sinuosity_canvas.draw_idle()
-        # Compute metrics directly from the CSV so the panel works during a run,
-        # before latest_result is available. After the run, prefer the solver-returned
-        # metrics when they exist.
-        if self.latest_result is not None and self.latest_result.get('sinuosity_stability'):
-            self._update_sinuosity_metrics(self.latest_result.get('sinuosity_stability'))
-        else:
-            stability = self._compute_sinuosity_stability_from_arrays(
-                df['step'].to_numpy(),
-                df['sinuo'].to_numpy(),
-            )
-            self._update_sinuosity_metrics(stability)
 
     def _compute_sinuosity_stability_from_arrays(self, steps, values) -> dict:
         steps = np.asarray(steps, dtype=np.float64)
