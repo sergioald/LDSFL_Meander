@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="https://doi.org/10.5281/zenodo.19945291"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.19945291.svg" alt="DOI"></a>
+  <a href="https://github.com/sergioald/LDSFL_Meander/actions/workflows/tests.yml"><img src="https://github.com/sergioald/LDSFL_Meander/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
   <img src="https://img.shields.io/badge/version-v0.6.5-blue" alt="Version v0.6.5">
   <img src="https://img.shields.io/badge/python-%E2%89%A53.10-blue" alt="Python >= 3.10">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
@@ -22,7 +23,7 @@
   <a href="#quick-start">Quick start</a> •
   <a href="#reproduce-the-bundled-example">Reproduce example</a> •
   <a href="#interfaces">Interfaces</a> •
-  <a href="#documentation">Documentation</a> •
+  <a href="#stability-diagnostics">Stability diagnostics</a> •
   <a href="#citation">Citation</a>
 </p>
 
@@ -49,11 +50,13 @@ It is **not** a full 2D or 3D hydrodynamic solver, and it should not be presente
 
 ## Visual overview
 
-| Planform GUI view | Sinuosity diagnostic |
-|---|---|
-| <img src="docs/figures/gui_plot_view.png" alt="LDSFL-Meander GUI plot view" width="420"> | <img src="examples/reproducible_case1_short/expected_output/1_9_0005_03_2_05/plot/sinuosity_history_1_9_0005_03_2_05.png" alt="Step-vs-sinuosity history" width="420"> |
+<p align="center">
+  <img src="docs/figures/gui_sinuosity_stability.png" alt="LDSFL-Meander GUI showing the sinuosity stability diagnostic" width="920">
+</p>
 
-LDSFL-Meander evolves an input centerline, writes reproducible output snapshots, and reports step-vs-sinuosity diagnostics to help identify stable or quasi-stable planform behaviour.
+The GUI supports dimensional and dimensionless setup, run controls, stop criteria, live plotting, and step-vs-sinuosity diagnostics. The screenshot above uses repository-relative paths so it can be safely included in the public README.
+
+LDSFL-Meander evolves an input centerline, writes reproducible output snapshots, and reports sinuosity diagnostics to help identify stable or quasi-stable planform behaviour.
 
 ---
 
@@ -83,21 +86,21 @@ python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
-### macOS/Linux
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
-python -m pytest
-```
-
 ### Conda users
 
 ```powershell
 conda create -n ldsfl-meander python=3.10
 conda activate ldsfl-meander
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+python -m pytest
+```
+
+### macOS/Linux
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 python -m pytest
@@ -147,6 +150,19 @@ On startup, the GUI preloads the bundled example inputs from [`Input/`](Input/),
 | Command line | Reproducible batch runs | `python run_ldsfl.py --help` |
 | Desktop GUI | Interactive setup, teaching, visual inspection | `python gui_ldsfl.py` |
 | Input CSV files | Transparent reproducible configuration | [`Input/Parameter.csv`](Input/Parameter.csv), [`Input/xy.csv`](Input/xy.csv) |
+
+---
+
+## Stability diagnostics
+
+The solver records step-vs-sinuosity histories and reports stability metrics for long exploratory runs. Recent diagnostics include:
+
+- moving-window sinuosity state,
+- relative span and trend per step,
+- slope-equivalence stability testing,
+- optional stopping once sinuosity is statistically stable.
+
+The stability criterion is intended to identify practical convergence of bulk sinuosity, not to prove that every bend has reached a mathematical equilibrium. For detailed interpretation and portfolio context, see [`docs/portfolio_summary.md`](docs/portfolio_summary.md).
 
 ---
 
