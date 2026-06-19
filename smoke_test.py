@@ -8,7 +8,6 @@ from pathlib import Path
 
 from ldsfl.main import run_project
 
-
 EXPECTED_SUBDIRS = ("files", "plot", "xy_cut", "xyu")
 
 

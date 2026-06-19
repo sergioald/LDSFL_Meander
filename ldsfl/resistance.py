@@ -1,5 +1,6 @@
 
 from __future__ import annotations
+
 import numpy as np
 
 
@@ -30,12 +31,10 @@ def resistance_function_flagbed(flagbed: int, theta0: float, ds: float, rpic_0: 
 
 
         if dth >= 0.0:
-            phi  = 3.97*(dth**1.5)
             phiT = 1.5*theta0*(dth**(-1.0))
         else:
             # MATLAB-style: allow complex instead of NaN
             dthc = complex(dth, 0.0)
-            phi  = 3.97*(dthc**1.5)
             phiT = 1.5*theta0*(dthc**(-1.0))
             raise ValueError(f"theta0 <= thetacr (theta0={theta0}, thetacr={thetacr})")
 
@@ -60,7 +59,6 @@ def resistance_function_flagbed(flagbed: int, theta0: float, ds: float, rpic_0: 
         CD = -5.0*XO
         CT = (1.0 + 5.0*XO)*BB*Teta0
 
-        phi = (0.05/Cf0)*(theta0**2.5)
         phiD = -CD
         phiT = 2.5 - CT
 

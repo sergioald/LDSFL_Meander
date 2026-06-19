@@ -5,7 +5,6 @@ from pathlib import Path
 
 from ldsfl.main import run_case
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 

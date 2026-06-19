@@ -4,34 +4,34 @@ from __future__ import annotations
 import copy
 import json
 import threading
+import tkinter as tk
 import traceback
 from pathlib import Path
-import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+import numpy as np
 import pandas as pd
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
-import numpy as np
 
+from ldsfl import __version__
 from ldsfl.gui_utils import (
-    DimensionlessInputs,
     DimensionalInputs,
-    GuiCaseConfig,
+    DimensionlessInputs,
     GeometrySettings,
+    GuiCaseConfig,
     RunControls,
     build_scaled_xy_table,
-    parse_geometry_csv,
     compute_id_files,
     config_from_dict,
     config_to_dict,
     output_scales,
+    parse_geometry_csv,
     preview_case_config,
     validate_case_config,
     write_case_inputs,
 )
 from ldsfl.main import run_project
-from ldsfl import __version__
 
 BED_OPTIONS = {
     '1 - plane bed': 1,

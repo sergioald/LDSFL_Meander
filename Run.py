@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Convenience launcher for an LDSFL-Meander run from the project folder."""
 from __future__ import annotations
 

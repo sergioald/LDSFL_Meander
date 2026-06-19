@@ -16,28 +16,49 @@ for _var in (
 ):
     os.environ.setdefault(_var, "1")
 
-import argparse
-from pathlib import Path
+import argparse  # noqa: E402
+from pathlib import Path  # noqa: E402
 
-from ldsfl.main import run_project
+from ldsfl.main import run_project  # noqa: E402
 
-def parse_cases(s: str):
-    out=[]
-    for part in s.split(','):
-        part=part.strip()
+
+def parse_cases(value: str) -> list[int]:
+    """Parse a comma-separated case selection such as ``1,3-5``."""
+    cases: list[int] = []
+    seen: set[int] = set()
+    for raw_part in value.split(","):
+        part = raw_part.strip()
         if not part:
             continue
-        if '-' in part:
-            a,b=part.split('-',1)
-            out.extend(list(range(int(a), int(b)+1)))
-        else:
-            out.append(int(part))
-    return out
+        try:
+            if "-" in part:
+                start_s, end_s = part.split("-", 1)
+                start = int(start_s)
+                end = int(end_s)
+                if end < start:
+                    raise ValueError("range end is smaller than range start")
+                expanded = range(start, end + 1)
+            else:
+                expanded = [int(part)]
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(f"invalid case selection {part!r}: {exc}") from exc
+
+        for case_i in expanded:
+            if case_i <= 0:
+                raise argparse.ArgumentTypeError(f"case ids must be positive integers: {case_i}")
+            if case_i not in seen:
+                seen.add(case_i)
+                cases.append(case_i)
+
+    if not cases:
+        raise argparse.ArgumentTypeError("case selection is empty")
+    return cases
+
 
 def main():
     ap = argparse.ArgumentParser(description="Run the LDSFL-Meander reduced meander model.")
     ap.add_argument("--base-dir", type=Path, default=Path("."), help="Folder containing Input/ and Output/")
-    ap.add_argument("--cases", type=str, default="", help="Cases to run, e.g. '1,3-5'. Empty=all.")
+    ap.add_argument("--cases", type=parse_cases, default=None, help="Cases to run, e.g. '1,3-5'. Empty=all.")
     ap.add_argument("--nprint", type=int, default=10000)
     ap.add_argument("--ntstep", type=int, default=100000)
     ap.add_argument("--max-cut", type=int, default=100)
@@ -90,7 +111,7 @@ def main():
     )
     args = ap.parse_args()
 
-    cases = parse_cases(args.cases) if args.cases else None
+    cases = args.cases
     max_steps = None if args.max_steps == 0 else args.max_steps
     max_sim_time = None if args.max_sim_time == 0 else args.max_sim_time
     results = run_project(

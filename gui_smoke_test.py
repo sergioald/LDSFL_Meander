@@ -5,10 +5,10 @@ import tempfile
 from pathlib import Path
 
 from ldsfl.gui_utils import (
-    DimensionlessInputs,
     DimensionalInputs,
-    GuiCaseConfig,
+    DimensionlessInputs,
     GeometrySettings,
+    GuiCaseConfig,
     RunControls,
     config_from_dict,
     config_to_dict,

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Short regression/smoke runner for LDSFL-Meander.
 
 This script runs a small deterministic simulation using the local project folder

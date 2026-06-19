@@ -25,13 +25,12 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, List
 import os
 from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
 
 from .vertical import k0123
-
 
 # --------------------------
 # MATLAB-compatible roots()
@@ -104,7 +103,7 @@ def _precompute_modes(
     theta0: float,
     F0: float,
     Mdat: int,
-) -> Tuple[
+) -> tuple[
     np.ndarray,
     np.ndarray,
     np.ndarray,
@@ -687,7 +686,7 @@ def _duzs_periodic_bc_modes(
     g41v: np.ndarray,
     toll: float,
     paral: int,
-    n_workers: Optional[int],
+    n_workers: int | None,
 ) -> np.ndarray:
     """Compute periodic deltaU for all modes, optionally parallelizing over jm."""
     Mdat = int(Av_pos.size)
@@ -719,7 +718,7 @@ def _duzs_periodic_bc_modes(
     # Parallel over modes (MATLAB paral==1 / parfor analogue).
     # We keep deterministic summation by collecting results and adding in jm order.
     max_workers = int(n_workers) if n_workers is not None else (os.cpu_count() or 1)
-    results: List[Optional[np.ndarray]] = [None] * Mdat
+    results: list[np.ndarray | None] = [None] * Mdat
 
     def _task(jm: int) -> np.ndarray:
         return _duzs_periodic_bc_one_mode(
@@ -1111,8 +1110,8 @@ def parall_u_periodic(
     *,
     toll: float = TOLL_DEFAULT,
     paral: int = 0,
-    n_workers: Optional[int] = None,
-) -> Tuple[np.ndarray, int]:
+    n_workers: int | None = None,
+) -> tuple[np.ndarray, int]:
     """Periodic-boundary flow-field (U) using the Fortran dUZSBC1 logic.
 
     Signature matches `parall_u_free` so you can swap in Main.

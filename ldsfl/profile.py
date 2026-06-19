@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import numpy as np
+
 from .mathutils import matlab_gradient, unwrap_angles_like_matlab
+
 
 def preprof_3(xa: np.ndarray, ya: np.ndarray, dsliminicial: float):
     """
