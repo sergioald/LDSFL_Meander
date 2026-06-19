@@ -226,6 +226,6 @@ This project is distributed under the MIT License. See [`LICENSE`](LICENSE).
 LDSFL-Meander is named after and authored by:
 
 - Sergio Lopez-Dubon
-- Leonardo Sgarabotto
+- Alessandro Sgarabotto
 - Alessandro Frascati
 - Stefano Lanzoni
