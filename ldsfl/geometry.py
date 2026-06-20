@@ -2,9 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 from time import perf_counter
+
 import numpy as np
 
-from .mathutils import matlab_spline, matlab_gradient, unwrap_angles_like_matlab, smooth_xy_via_theta, find_neck_cutoff_kdtree_with_refine
+from .mathutils import (
+    find_neck_cutoff_kdtree_with_refine,
+    matlab_gradient,
+    matlab_spline,
+    smooth_xy_via_theta,
+    unwrap_angles_like_matlab,
+)
 from .outputs import plot_cut, save_xy_cut
 
 
