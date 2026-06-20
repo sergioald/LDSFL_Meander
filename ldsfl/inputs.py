@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+
 
 def read_parameter_table(param_csv: Path) -> pd.DataFrame:
     # MATLAB readtable with "preserve" keeps original names; pandas preserves headers as-is.

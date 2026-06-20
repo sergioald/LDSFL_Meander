@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 import os
 import warnings
+from pathlib import Path
 from time import perf_counter
 
 import numpy as np
@@ -13,14 +13,14 @@ try:  # optional
 except Exception:  # pragma: no cover
     _numba = None
 
-from .inputs import read_parameter_table, read_xy, dimensionless_input_table
-from .profile import preprof_3
-from .resistance import resistance_function_flagbed
+from .evolution import dxdy2, update_parameters
 from .flowfield import parall_u_free
 from .flowfield_periodic import parall_u_periodic
-from .evolution import dxdy2, update_parameters
 from .geometry import geometry4
-from .outputs import ensure_dirs, save_xystcu, save_variables, plot_it, save_sinuosity_history
+from .inputs import dimensionless_input_table, read_parameter_table, read_xy
+from .outputs import ensure_dirs, plot_it, save_sinuosity_history, save_variables, save_xystcu
+from .profile import preprof_3
+from .resistance import resistance_function_flagbed
 from .stability import sinuosity_equivalence_stability
 
 
@@ -296,6 +296,7 @@ def run_case(
             "flow_paral=1 with numba_parallel=True may oversubscribe CPU cores. "
             "Consider flow_paral=0 when using numba_parallel, or set numba_parallel=False.",
             RuntimeWarning,
+            stacklevel=2,
         )
 
     steps = 0
@@ -587,7 +588,11 @@ def run_case(
                 length_scale=output_length_scale,
             )
     except Exception as exc:
-        warnings.warn(f"Final snapshot could not be saved: {exc}", RuntimeWarning)
+        warnings.warn(
+            f"Final snapshot could not be saved: {exc}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     save_sinuosity_history(out_dir, id_files, step_hist, sinuo_hist)
     stability_info = _sinuosity_stability_metrics(step_hist, sinuo_hist, window=sinuo_window, rel_tol=sinuo_rel_tol)

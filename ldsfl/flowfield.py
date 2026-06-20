@@ -3,18 +3,16 @@ from __future__ import annotations
 
 import os
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Tuple, List
 
 import numpy as np
 
-from .vertical import k0123
 from .semiana import (
     semiana1,
-    semiana2,
     semiana1_cached,
+    semiana2,
     semiana2_cached,
 )
-
+from .vertical import k0123
 
 """
 SL == 1 → :
@@ -121,7 +119,7 @@ def _precompute_modes(
     theta0: float,
     F0: float,
     Mdat: int,
-) -> Tuple[
+) -> tuple[
     np.ndarray,
     np.ndarray,
     np.ndarray,
@@ -298,7 +296,7 @@ def _precompute_modes(
     return Am, lamb1, lamb2, lamb3, lamb4, g10, g20, g30, g40, g11, g21, g31, g41
 
 
-def _prepare_padded(c: np.ndarray, s: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def _prepare_padded(c: np.ndarray, s: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     N = int(len(c))
     c_pad = np.zeros(N + 1, dtype=np.float64)
     s_pad = np.zeros(N + 1, dtype=np.float64)
@@ -314,7 +312,7 @@ def _cached_tables_for_lam(
     kmax: int,
     *,
     allow_pos_k: bool,
-) -> Tuple[np.ndarray, np.ndarray, complex, np.ndarray, int]:
+) -> tuple[np.ndarray, np.ndarray, complex, np.ndarray, int]:
     """Build cA,cB,lmds,exp_table for semiana*_cached."""
     lmds = lam * deltas
     lm2ds = lam * lmds
@@ -344,8 +342,8 @@ def _cached_tables_for_lam(
 def _mode_SL0(
     jm: int,
     Am: np.ndarray,
-    lambs: Tuple[complex, complex, complex, complex],
-    g0s: Tuple[complex, complex, complex, complex],
+    lambs: tuple[complex, complex, complex, complex],
+    g0s: tuple[complex, complex, complex, complex],
     g1sum: complex,
     c_pad: np.ndarray,
     s_pad: np.ndarray,
@@ -359,7 +357,7 @@ def _mode_SL0(
     UPSTR = np.zeros(N + 1, dtype=np.complex128)
     DWSTR = np.zeros(N + 1, dtype=np.complex128)
 
-    for lam, gj0 in zip(lambs, g0s):
+    for lam, gj0 in zip(lambs, g0s, strict=True):
         if lam.real > 0.0:
             real_lam = float(lam.real)
             decay = np.exp(-real_lam * (s_pad[1:] - s_pad[1]))
@@ -404,8 +402,8 @@ def _mode_SL0(
 def _mode_SL1(
     jm: int,
     Am: np.ndarray,
-    lambs: Tuple[complex, complex, complex, complex],
-    g0s: Tuple[complex, complex, complex, complex],
+    lambs: tuple[complex, complex, complex, complex],
+    g0s: tuple[complex, complex, complex, complex],
     g1sum: complex,
     c_pad: np.ndarray,
     s_pad: np.ndarray,
@@ -534,7 +532,7 @@ def _run_modes(
     c_pad: np.ndarray,
     s_pad: np.ndarray,
     deltas: float,
-    n_workers: Optional[int],
+    n_workers: int | None,
 ) -> np.ndarray:
     Mdat = Am.size
     N = len(c_pad) - 1
@@ -555,7 +553,7 @@ def _run_modes(
         return Ucplot
 
     max_workers = n_workers if n_workers is not None else (os.cpu_count() or 1)
-    dUs: List[Optional[np.ndarray]] = [None] * (Mdat + 1)
+    dUs: list[np.ndarray | None] = [None] * (Mdat + 1)
 
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         futures = {ex.submit(mode_fn, jm): jm for jm in range(1, Mdat + 1)}
@@ -591,7 +589,7 @@ def _run_modes_numba(
     c_pad: np.ndarray,
     s_pad: np.ndarray,
     deltas: float,
-    n_workers: Optional[int],
+    n_workers: int | None,
 ) -> np.ndarray:
     """Numba-accelerated mode runner (CPU JIT).
 
@@ -639,7 +637,7 @@ def _run_modes_numba(
         _add_one_mode(tmp, jm)
         return tmp
 
-    dUs: List[Optional[np.ndarray]] = [None] * (Mdat + 1)
+    dUs: list[np.ndarray | None] = [None] * (Mdat + 1)
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         futures = {ex.submit(_worker, jm): jm for jm in range(1, Mdat + 1)}
         for fut, jm in futures.items():
@@ -674,7 +672,7 @@ def parall_u_free(
     *,
     SL: int = 0,
     paral: int = 0,
-    n_workers: Optional[int] = None,
+    n_workers: int | None = None,
     backend: str = "numpy",
     numba_parallel: bool = False,
     numba_fastmath: bool = False,
@@ -700,7 +698,7 @@ def parall_u_free(
         # can oversubscribe CPU cores and slow things down.
         if int(paral) == 1 and bool(numba_parallel):
             import warnings
-            warnings.warn("Both flow_paral=1 and numba_parallel=True are enabled; this may oversubscribe CPU cores. Consider using only one.")
+            warnings.warn("Both flow_paral=1 and numba_parallel=True are enabled; this may oversubscribe CPU cores. Consider using only one.",stacklevel=2)
 
         Ucplot_pad = _run_modes_numba(
             SL=int(SL),
@@ -774,7 +772,7 @@ def parall_u_free_or(
     *,
     SL: int = 0,
     paral: int = 0,
-    n_workers: Optional[int] = None,
+    n_workers: int | None = None,
     backend: str = "numpy",
     numba_parallel: bool = False,
     numba_fastmath: bool = False,

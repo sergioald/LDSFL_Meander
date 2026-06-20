@@ -16,7 +16,6 @@ Notes
 
 from __future__ import annotations
 
-from typing import Tuple
 
 import numpy as np
 
@@ -212,7 +211,7 @@ def _cached_tables_for_lam_np(
     kmax: int,
     *,
     allow_pos_k: bool,
-) -> Tuple[np.ndarray, np.ndarray, complex, np.ndarray, int]:
+) -> tuple[np.ndarray, np.ndarray, complex, np.ndarray, int]:
     """Precompute cA/cB + exp_table for cached SEMIANA.
 
     The earlier "scalar coeff" variant avoided allocating cA/cB arrays, but it
@@ -398,8 +397,8 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
         out: np.ndarray,
         jm: int,
         Am: np.ndarray,
-        lambs: Tuple[complex, complex, complex, complex],
-        g0s: Tuple[complex, complex, complex, complex],
+        lambs: tuple[complex, complex, complex, complex],
+        g0s: tuple[complex, complex, complex, complex],
         g1sum: complex,
         c_pad: np.ndarray,
         s_pad: np.ndarray,
@@ -415,7 +414,7 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
         dist0 = s_pad[1:] - s_pad[1]
         log_toll = -np.log(toll)
 
-        for lam, gj0 in zip(lambs, g0s):
+        for lam, gj0 in zip(lambs, g0s, strict=True):
             if lam.real > 0.0:
                 real_lam_abs = abs(float(lam.real))
                 if real_lam_abs <= 0.0:
@@ -457,8 +456,8 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
         out: np.ndarray,
         jm: int,
         Am: np.ndarray,
-        lambs: Tuple[complex, complex, complex, complex],
-        g0s: Tuple[complex, complex, complex, complex],
+        lambs: tuple[complex, complex, complex, complex],
+        g0s: tuple[complex, complex, complex, complex],
         g1sum: complex,
         c_pad: np.ndarray,
         s_pad: np.ndarray,
@@ -558,8 +557,8 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
     def mode_sl0(
         jm: int,
         Am: np.ndarray,
-        lambs: Tuple[complex, complex, complex, complex],
-        g0s: Tuple[complex, complex, complex, complex],
+        lambs: tuple[complex, complex, complex, complex],
+        g0s: tuple[complex, complex, complex, complex],
         g1sum: complex,
         c_pad: np.ndarray,
         s_pad: np.ndarray,
@@ -574,8 +573,8 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
     def mode_sl1(
         jm: int,
         Am: np.ndarray,
-        lambs: Tuple[complex, complex, complex, complex],
-        g0s: Tuple[complex, complex, complex, complex],
+        lambs: tuple[complex, complex, complex, complex],
+        g0s: tuple[complex, complex, complex, complex],
         g1sum: complex,
         c_pad: np.ndarray,
         s_pad: np.ndarray,

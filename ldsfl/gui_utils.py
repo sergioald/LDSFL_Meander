@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from pathlib import Path
 import csv
 import math
 import re
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Literal
 
 import pandas as pd
@@ -168,7 +168,7 @@ class GeometrySettings:
     resample_upper_factor: float = 1.03
     resample_lower_factor: float = 0.97
 
-    def resolved_scale(self, config: "GuiCaseConfig") -> float:
+    def resolved_scale(self, config: GuiCaseConfig) -> float:
         if self.mode == "as_is":
             return 1.0
         if self.mode == "scale_by_dimensional_half_width":
