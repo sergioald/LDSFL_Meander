@@ -31,7 +31,9 @@ from ldsfl.gui_utils import (
     write_case_inputs,
 )
 from ldsfl.main import run_project
+from ldsfl.stability import sinuosity_equivalence_stability
 from ldsfl import __version__
+
 
 BED_OPTIONS = {
     '1 - plane bed': 1,
@@ -100,7 +102,6 @@ HELP = {
     'stop_on_steps': 'Enable or disable the maximum-steps stop criterion.',
     'stop_on_time': 'Enable or disable the maximum simulated time stop criterion.',
     'stop_on_cutoffs': 'Enable or disable the maximum-cutoffs stop criterion.',
-    'stop_on_sinuosity_stability': 'Enable automatic stopping once the post-transient equivalence diagnostic accepts sinuosity stability within the drift tolerance.',
     'save_final_overlay': 'Save the current GUI overlay plot as a PNG in the run output folder after the simulation ends.',
     'save_run_manifest': 'Write a run_manifest.json file into the run output folder containing the resolved inputs, run summary, and output-unit settings.',
     'show_completion_popup': 'Show a popup message when the simulation finishes, stops by criteria, or fails.',
@@ -198,7 +199,6 @@ class LdslGui(tk.Tk):
         self.stop_on_steps_var = tk.BooleanVar(value=True)
         self.stop_on_time_var = tk.BooleanVar(value=False)
         self.stop_on_cutoffs_var = tk.BooleanVar(value=True)
-        self.stop_on_sinuosity_stability_var = tk.BooleanVar(value=False)
         self.live_preview_var = tk.BooleanVar(value=True)
         self.live_every_var = tk.StringVar(value='5')
         self.do_plots_var = tk.BooleanVar(value=False)
@@ -224,6 +224,11 @@ class LdslGui(tk.Tk):
         self.sinuosity_figure = Figure(figsize=(6.6, 2.6), dpi=100)
         self.sinuosity_ax = self.sinuosity_figure.add_subplot(111)
         self.sinuosity_canvas = None
+
+        self.sinuo_equiv_state_var = tk.StringVar(value="—")
+        self.sinuo_equiv_drift_var = tk.StringVar(value="—")
+        self.sinuo_equiv_ci_var = tk.StringVar(value="—")
+        self.sinuo_equiv_tol_var = tk.StringVar(value="±0.02")    
 
         self.beta_var = tk.StringVar(value='9.0')
         self.ds_var = tk.StringVar(value='0.005')
@@ -555,13 +560,6 @@ class LdslGui(tk.Tk):
         cut_entry = ttk.Entry(stop_frame, textvariable=self.max_cut_var)
         cut_entry.grid(row=3, column=1, sticky='ew', pady=(4, 0))
         ToolTip(cut_entry, HELP['max_cut'])
-        sinuo_stop_btn = ttk.Checkbutton(
-            stop_frame,
-            text='Enable stop when sinuosity is statistically stable',
-            variable=self.stop_on_sinuosity_stability_var,
-        )
-        sinuo_stop_btn.grid(row=4, column=0, columnspan=2, sticky='w', pady=(4, 0))
-        ToolTip(sinuo_stop_btn, HELP['stop_on_sinuosity_stability'])
         stop_frame.columnconfigure(1, weight=1)
 
         action_frame = ttk.LabelFrame(self.run_tab, text='Actions', padding=10)
@@ -597,6 +595,12 @@ class LdslGui(tk.Tk):
         self._metric_label(metrics, 4, 'Rel. trend/step', self.sinuo_rel_trend_var)
         ttk.Button(metrics, text='Refresh sinuosity', command=self._refresh_sinuosity_panel).grid(row=0, column=10, padx=(16, 0), sticky='e')
         metrics.columnconfigure(10, weight=1)
+        equiv_metrics = ttk.Frame(sinuo_frame)
+        equiv_metrics.pack(fill="x", pady=(0, 6))
+        self._metric_label(equiv_metrics, 0, "Equiv. state", self.sinuo_equiv_state_var)
+        self._metric_label(equiv_metrics, 1, "Drift", self.sinuo_equiv_drift_var)
+        self._metric_label(equiv_metrics, 2, "90% CI", self.sinuo_equiv_ci_var)
+        self._metric_label(equiv_metrics, 3, "Tolerance", self.sinuo_equiv_tol_var)
         self.sinuosity_canvas = FigureCanvasTkAgg(self.sinuosity_figure, master=sinuo_frame)
         self.sinuosity_canvas.get_tk_widget().pack(fill='x')
         self._clear_sinuosity_panel()
@@ -785,7 +789,6 @@ class LdslGui(tk.Tk):
             stop_on_steps=bool(self.stop_on_steps_var.get()),
             stop_on_time=bool(self.stop_on_time_var.get()),
             stop_on_cutoffs=bool(self.stop_on_cutoffs_var.get()),
-            stop_on_sinuosity_stability=bool(self.stop_on_sinuosity_stability_var.get()),
             stop_mode=self.stop_mode_var.get(),
             do_plots=bool(self.do_plots_var.get()),
             save_final_overlay=bool(self.save_final_overlay_var.get()),
@@ -921,7 +924,6 @@ class LdslGui(tk.Tk):
                     'live_every': self.live_every_var.get(),
                     'show_original_plot': bool(self.show_original_plot_var.get()),
                     'show_completion_popup': bool(self.show_completion_popup_var.get()),
-                    'stop_on_sinuosity_stability': bool(self.stop_on_sinuosity_stability_var.get()),
                     'sinuo_window': self.sinuo_window_var.get(),
                     'sinuo_rel_tol': self.sinuo_rel_tol_var.get(),
                 },
@@ -948,12 +950,6 @@ class LdslGui(tk.Tk):
             self.live_every_var.set(str(gui_state.get('live_every', '5')))
             self.show_original_plot_var.set(bool(gui_state.get('show_original_plot', True)))
             self.show_completion_popup_var.set(bool(gui_state.get('show_completion_popup', True)))
-            self.stop_on_sinuosity_stability_var.set(
-                bool(gui_state.get(
-                    'stop_on_sinuosity_stability',
-                    getattr(cfg.run, 'stop_on_sinuosity_stability', False),
-                ))
-            )
             self.sinuo_window_var.set(str(gui_state.get('sinuo_window', getattr(cfg.run, 'sinuo_window', 100))))
             self.sinuo_rel_tol_var.set(str(gui_state.get('sinuo_rel_tol', getattr(cfg.run, 'sinuo_rel_tol', 0.005))))
             self._sync_mode()
@@ -984,9 +980,6 @@ class LdslGui(tk.Tk):
         self.stop_on_steps_var.set(bool(cfg.run.stop_on_steps))
         self.stop_on_time_var.set(bool(cfg.run.stop_on_time))
         self.stop_on_cutoffs_var.set(bool(cfg.run.stop_on_cutoffs))
-        self.stop_on_sinuosity_stability_var.set(
-            bool(getattr(cfg.run, 'stop_on_sinuosity_stability', False))
-        )
         self.stop_mode_var.set(str(cfg.run.stop_mode))
         self.do_plots_var.set(bool(cfg.run.do_plots))
         self.save_final_overlay_var.set(bool(cfg.run.save_final_overlay))
@@ -1149,7 +1142,6 @@ class LdslGui(tk.Tk):
                 stop_on_steps=config.run.stop_on_steps,
                 stop_on_time=config.run.stop_on_time,
                 stop_on_cutoffs=config.run.stop_on_cutoffs,
-                stop_on_sinuosity_stability=config.run.stop_on_sinuosity_stability,
                 stop_mode=config.run.stop_mode,
                 cstab=config.run.cstab,
                 geometry_smoothing_enabled=config.geometry.smoothing_enabled,
@@ -1368,24 +1360,11 @@ class LdslGui(tk.Tk):
         self.sinuosity_ax.set_xlabel('Step [-]')
         self.sinuosity_ax.set_ylabel('Sinuosity [-]')
         self.sinuosity_ax.grid(True, alpha=0.3)
-
         self.sinuo_state_var.set('Not available')
         self.sinuo_current_var.set('—')
         self.sinuo_window_used_var.set('—')
         self.sinuo_rel_span_var.set('—')
         self.sinuo_rel_trend_var.set('—')
-
-        # These variables exist only when the equivalence-metrics panel is enabled.
-        # Guard with hasattr so older/simpler GUI builds still launch cleanly.
-        if hasattr(self, 'sinuo_equiv_state_var'):
-            self.sinuo_equiv_state_var.set('—')
-        if hasattr(self, 'sinuo_equiv_drift_var'):
-            self.sinuo_equiv_drift_var.set('—')
-        if hasattr(self, 'sinuo_equiv_ci_var'):
-            self.sinuo_equiv_ci_var.set('—')
-        if hasattr(self, 'sinuo_equiv_tol_var'):
-            self.sinuo_equiv_tol_var.set('±0.02')
-
         self._layout_sinuosity_figure()
         if self.sinuosity_canvas is not None:
             self.sinuosity_canvas.draw_idle()
@@ -1448,7 +1427,8 @@ class LdslGui(tk.Tk):
             state = 'quasi-stable'
         else:
             state = 'not stable'
-        return {
+
+        result = {
             'state': state,
             'stable': bool(stable),
             'quasi_stable': bool(quasi_stable),
@@ -1459,6 +1439,23 @@ class LdslGui(tk.Tk):
             'rel_trend_per_step': rel_trend_per_step,
             'sinuo_final': float(vals[-1]),
         }
+
+        try:
+            result['equivalence'] = sinuosity_equivalence_stability(
+                steps,
+                vals,
+                transient_step=40_000,
+                drift_tolerance=0.02,
+                confidence=0.90,
+            )
+        except Exception:
+            result['equivalence'] = {
+                'stable': False,
+                'state': 'not available',
+                'reason': 'equivalence diagnostic unavailable for this history',
+            }
+
+        return result
 
     def _format_metric(self, value):
         try:
