@@ -55,6 +55,12 @@ numba = [
   "numba",
 ]
 
+[project.scripts]
+ldsfl-run = "run_ldsfl:main"
+
+[tool.setuptools]
+py-modules = ["run_ldsfl"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["ldsfl*"]
