@@ -64,5 +64,5 @@ def test_equivalence_diagnostic_is_available_when_explicitly_requested(monkeypat
         do_plots=False,
     )
 
-    assert calls["n"] >= 1
+    assert calls["n"] == 1
     assert result["sinuosity_stability"]["equivalence"]["stable"] is True
