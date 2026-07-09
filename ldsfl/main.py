@@ -186,14 +186,22 @@ def _combined_sinuosity_stability_metrics(
     *,
     window: int = 100,
     rel_tol: float = 5.0e-3,
+    equivalence_transient_step: float | None = 40_000.0,
+    equivalence_drift_tolerance: float = 0.02,
+    equivalence_confidence: float = 0.90,
+    equivalence_min_points: int = 10,
+    equivalence_hac_lags: int = 50,
 ) -> dict:
+    """Return moving-window and equivalence-style sinuosity diagnostics."""
     stability = _sinuosity_stability_metrics(step_hist, sinuo_hist, window=window, rel_tol=rel_tol)
     stability["equivalence"] = sinuosity_equivalence_stability(
         step_hist,
         sinuo_hist,
-        transient_step=40_000,
-        drift_tolerance=0.02,
-        confidence=0.90,
+        transient_step=equivalence_transient_step,
+        drift_tolerance=equivalence_drift_tolerance,
+        confidence=equivalence_confidence,
+        min_points=equivalence_min_points,
+        hac_lags=equivalence_hac_lags,
     )
     return stability
 
@@ -231,6 +239,12 @@ def run_case(
     output_velocity_scale: float = 1.0,
     sinuo_window: int = 100,
     sinuo_rel_tol: float = 5.0e-3,
+    sinuo_equiv_transient_step: float | None = 40_000.0,
+    sinuo_equiv_drift_tol: float = 0.02,
+    sinuo_equiv_confidence: float = 0.90,
+    sinuo_equiv_min_points: int = 10,
+    sinuo_equiv_hac_lags: int = 50,
+    sinuo_stability_interval: int = 100,
     stop_requested_callback=None,
 ):
     """Run one LDSFL-Meander case using the prepared Input/ files."""
@@ -289,7 +303,18 @@ def run_case(
 
     step_hist: list[int] = [0]
     sinuo_hist: list[float] = [float(sinuo)]
-    stability_info = _combined_sinuosity_stability_metrics(step_hist, sinuo_hist, window=sinuo_window, rel_tol=sinuo_rel_tol)
+    stability_interval = max(1, int(sinuo_stability_interval))
+    stability_info = _combined_sinuosity_stability_metrics(
+        step_hist,
+        sinuo_hist,
+        window=sinuo_window,
+        rel_tol=sinuo_rel_tol,
+        equivalence_transient_step=sinuo_equiv_transient_step,
+        equivalence_drift_tolerance=sinuo_equiv_drift_tol,
+        equivalence_confidence=sinuo_equiv_confidence,
+        equivalence_min_points=sinuo_equiv_min_points,
+        equivalence_hac_lags=sinuo_equiv_hac_lags,
+    )
 
     n1 = np.array([1.0], dtype=np.float64)
     flow_workers = int(flow_workers)
@@ -560,12 +585,28 @@ def run_case(
             steps += 1
             step_hist.append(int(steps))
             sinuo_hist.append(float(sinuo))
-            stability_info = _sinuosity_stability_metrics(
-                step_hist,
-                sinuo_hist,
-                window=sinuo_window,
-                rel_tol=sinuo_rel_tol,
-            )
+            if bool(stop_on_sinuosity_stability) and (steps % stability_interval) == 0:
+                stability_info = _combined_sinuosity_stability_metrics(
+                    step_hist,
+                    sinuo_hist,
+                    window=sinuo_window,
+                    rel_tol=sinuo_rel_tol,
+                    equivalence_transient_step=sinuo_equiv_transient_step,
+                    equivalence_drift_tolerance=sinuo_equiv_drift_tol,
+                    equivalence_confidence=sinuo_equiv_confidence,
+                    equivalence_min_points=sinuo_equiv_min_points,
+                    equivalence_hac_lags=sinuo_equiv_hac_lags,
+                )
+            else:
+                previous_equivalence = (stability_info or {}).get("equivalence")
+                stability_info = _sinuosity_stability_metrics(
+                    step_hist,
+                    sinuo_hist,
+                    window=sinuo_window,
+                    rel_tol=sinuo_rel_tol,
+                )
+                if previous_equivalence is not None:
+                    stability_info["equivalence"] = previous_equivalence
 
             jt += 1
             cnt_f += 1
@@ -636,7 +677,17 @@ def run_case(
 
 
     save_sinuosity_history(out_dir, id_files, step_hist, sinuo_hist)
-    stability_info = _sinuosity_stability_metrics(step_hist, sinuo_hist, window=sinuo_window, rel_tol=sinuo_rel_tol)
+    stability_info = _combined_sinuosity_stability_metrics(
+        step_hist,
+        sinuo_hist,
+        window=sinuo_window,
+        rel_tol=sinuo_rel_tol,
+        equivalence_transient_step=sinuo_equiv_transient_step,
+        equivalence_drift_tolerance=sinuo_equiv_drift_tol,
+        equivalence_confidence=sinuo_equiv_confidence,
+        equivalence_min_points=sinuo_equiv_min_points,
+        equivalence_hac_lags=sinuo_equiv_hac_lags,
+    )
 
     return {
         "id_files": id_files,

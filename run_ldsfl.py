@@ -85,6 +85,26 @@ def main() -> None:
     ap.add_argument("--stop-on-steps", type=int, default=1, choices=[0, 1])
     ap.add_argument("--stop-on-time", type=int, default=0, choices=[0, 1])
     ap.add_argument("--stop-on-cutoffs", type=int, default=1, choices=[0, 1])
+    ap.add_argument(
+        "--stop-on-sinuosity-stability",
+        type=int,
+        default=0,
+        choices=[0, 1],
+        help="Stop once the equivalence-style sinuosity stability diagnostic is satisfied.",
+    )
+    ap.add_argument("--sinuo-window", type=int, default=100, help="Moving-window length for sinuosity diagnostics.")
+    ap.add_argument("--sinuo-rel-tol", type=float, default=5.0e-3, help="Relative tolerance for moving-window sinuosity stability.")
+    ap.add_argument(
+        "--sinuo-equiv-transient-step",
+        type=float,
+        default=40000.0,
+        help="Discard earlier steps for equivalence testing; use a negative value to use all history.",
+    )
+    ap.add_argument("--sinuo-equiv-drift-tol", type=float, default=0.02, help="Allowed total sinuosity drift for equivalence testing.")
+    ap.add_argument("--sinuo-equiv-confidence", type=float, default=0.90, help="Confidence level for the equivalence-style drift interval.")
+    ap.add_argument("--sinuo-equiv-min-points", type=int, default=10, help="Minimum points required for equivalence testing.")
+    ap.add_argument("--sinuo-equiv-hac-lags", type=int, default=50, help="Newey-West/HAC lag count for equivalence testing.")
+    ap.add_argument("--sinuo-stability-interval", type=int, default=100, help="Check equivalence stability every N completed steps when stopping is enabled.")
     ap.add_argument("--no-plots", action="store_true")
     ap.add_argument("--cstab", type=float, default=0.01, help="Timestep stability coefficient")
     ap.add_argument("--geometry-smoothing", type=int, default=1, choices=[0, 1], help="Enable geometry smoothing/filtering")
@@ -143,6 +163,7 @@ def main() -> None:
 
     max_steps = None if args.max_steps == 0 else args.max_steps
     max_sim_time = None if args.max_sim_time == 0 else args.max_sim_time
+    sinuo_equiv_transient_step = None if args.sinuo_equiv_transient_step < 0 else args.sinuo_equiv_transient_step
     results = run_project(
         args.base_dir,
         cases=args.cases,
@@ -156,6 +177,15 @@ def main() -> None:
         stop_on_steps=bool(args.stop_on_steps),
         stop_on_time=bool(args.stop_on_time),
         stop_on_cutoffs=bool(args.stop_on_cutoffs),
+        stop_on_sinuosity_stability=bool(args.stop_on_sinuosity_stability),
+        sinuo_window=args.sinuo_window,
+        sinuo_rel_tol=args.sinuo_rel_tol,
+        sinuo_equiv_transient_step=sinuo_equiv_transient_step,
+        sinuo_equiv_drift_tol=args.sinuo_equiv_drift_tol,
+        sinuo_equiv_confidence=args.sinuo_equiv_confidence,
+        sinuo_equiv_min_points=args.sinuo_equiv_min_points,
+        sinuo_equiv_hac_lags=args.sinuo_equiv_hac_lags,
+        sinuo_stability_interval=args.sinuo_stability_interval,
         cstab=args.cstab,
         geometry_smoothing_enabled=bool(args.geometry_smoothing),
         geometry_smoothing_factor=args.geometry_smoothing_factor,
