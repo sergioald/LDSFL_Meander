@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Convenience launcher for an LDSFL-Meander run from the project folder."""
 from __future__ import annotations
 
@@ -19,7 +18,8 @@ def main() -> None:
         help="Folder containing Input/ and where Output/ will be created.",
     )
     ap.add_argument("--cases", type=str, default="1", help="Cases to run, e.g. '1' or '1,2'.")
-    ap.add_argument("--backend", choices=["numpy", "numba"], default="numba")
+    # numpy is the safe default: numba is an optional extra and may not be installed.
+    ap.add_argument("--backend", choices=["numpy", "numba"], default="numpy")
     ap.add_argument("--max-steps", type=int, default=0, help="0 means unlimited.")
     ap.add_argument("--nprint", type=int, default=10)
     ap.add_argument("--ntstep", type=int, default=100000)

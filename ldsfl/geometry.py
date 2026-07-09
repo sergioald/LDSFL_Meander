@@ -62,6 +62,7 @@ def geometry4(
     timing: dict | None = None,
     output_units: str = "dimensionless",
     output_length_scale: float = 1.0,
+    do_plots: bool = True,
 ):
     """Geometry processing, resampling, smoothing, and cutoff detection."""
     dslim = dsliminicial * float(dslim_upper_factor)
@@ -103,7 +104,8 @@ def geometry4(
             i = i0 + 1
             AA = (j0 - start) + 1
             cut_cnt = int(cut_cnt + 1)
-            plot_cut(base_out, xa, ya, i, AA, id_files, jt, Ntstep, cut_cnt, ss, output_units=output_units, length_scale=output_length_scale)
+            if do_plots:
+                plot_cut(base_out, xa, ya, i, AA, id_files, jt, Ntstep, cut_cnt, ss, output_units=output_units, length_scale=output_length_scale)
             save_xy_cut(base_out, xa, ya, i, AA, id_files, jt, Ntstep, cut_cnt, ss, output_units=output_units, length_scale=output_length_scale)
             end_mat = ss + AA + i + 1
             start_py = i - 1
