@@ -245,6 +245,7 @@ def run_case(
     sinuo_equiv_min_points: int = 10,
     sinuo_equiv_hac_lags: int = 50,
     sinuo_stability_interval: int = 100,
+    return_equivalence_stability: bool = False,
     stop_requested_callback=None,
 ):
     """Run one LDSFL-Meander case using the prepared Input/ files."""
@@ -304,17 +305,26 @@ def run_case(
     step_hist: list[int] = [0]
     sinuo_hist: list[float] = [float(sinuo)]
     stability_interval = max(1, int(sinuo_stability_interval))
-    stability_info = _combined_sinuosity_stability_metrics(
-        step_hist,
-        sinuo_hist,
-        window=sinuo_window,
-        rel_tol=sinuo_rel_tol,
-        equivalence_transient_step=sinuo_equiv_transient_step,
-        equivalence_drift_tolerance=sinuo_equiv_drift_tol,
-        equivalence_confidence=sinuo_equiv_confidence,
-        equivalence_min_points=sinuo_equiv_min_points,
-        equivalence_hac_lags=sinuo_equiv_hac_lags,
-    )
+    use_equivalence_stability = bool(stop_on_sinuosity_stability) or bool(return_equivalence_stability)
+    if use_equivalence_stability:
+        stability_info = _combined_sinuosity_stability_metrics(
+            step_hist,
+            sinuo_hist,
+            window=sinuo_window,
+            rel_tol=sinuo_rel_tol,
+            equivalence_transient_step=sinuo_equiv_transient_step,
+            equivalence_drift_tolerance=sinuo_equiv_drift_tol,
+            equivalence_confidence=sinuo_equiv_confidence,
+            equivalence_min_points=sinuo_equiv_min_points,
+            equivalence_hac_lags=sinuo_equiv_hac_lags,
+        )
+    else:
+        stability_info = _sinuosity_stability_metrics(
+            step_hist,
+            sinuo_hist,
+            window=sinuo_window,
+            rel_tol=sinuo_rel_tol,
+        )
 
     n1 = np.array([1.0], dtype=np.float64)
     flow_workers = int(flow_workers)
@@ -585,7 +595,7 @@ def run_case(
             steps += 1
             step_hist.append(int(steps))
             sinuo_hist.append(float(sinuo))
-            if bool(stop_on_sinuosity_stability) and (steps % stability_interval) == 0:
+            if use_equivalence_stability and (steps % stability_interval) == 0:
                 stability_info = _combined_sinuosity_stability_metrics(
                     step_hist,
                     sinuo_hist,
@@ -605,7 +615,7 @@ def run_case(
                     window=sinuo_window,
                     rel_tol=sinuo_rel_tol,
                 )
-                if previous_equivalence is not None:
+                if use_equivalence_stability and previous_equivalence is not None:
                     stability_info["equivalence"] = previous_equivalence
 
             jt += 1
@@ -677,17 +687,25 @@ def run_case(
 
 
     save_sinuosity_history(out_dir, id_files, step_hist, sinuo_hist)
-    stability_info = _combined_sinuosity_stability_metrics(
-        step_hist,
-        sinuo_hist,
-        window=sinuo_window,
-        rel_tol=sinuo_rel_tol,
-        equivalence_transient_step=sinuo_equiv_transient_step,
-        equivalence_drift_tolerance=sinuo_equiv_drift_tol,
-        equivalence_confidence=sinuo_equiv_confidence,
-        equivalence_min_points=sinuo_equiv_min_points,
-        equivalence_hac_lags=sinuo_equiv_hac_lags,
-    )
+    if use_equivalence_stability:
+        stability_info = _combined_sinuosity_stability_metrics(
+            step_hist,
+            sinuo_hist,
+            window=sinuo_window,
+            rel_tol=sinuo_rel_tol,
+            equivalence_transient_step=sinuo_equiv_transient_step,
+            equivalence_drift_tolerance=sinuo_equiv_drift_tol,
+            equivalence_confidence=sinuo_equiv_confidence,
+            equivalence_min_points=sinuo_equiv_min_points,
+            equivalence_hac_lags=sinuo_equiv_hac_lags,
+        )
+    else:
+        stability_info = _sinuosity_stability_metrics(
+            step_hist,
+            sinuo_hist,
+            window=sinuo_window,
+            rel_tol=sinuo_rel_tol,
+        )
 
     return {
         "id_files": id_files,
