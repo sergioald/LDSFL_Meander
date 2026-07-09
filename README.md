@@ -284,4 +284,4 @@ LDSFL-Meander is named after and authored by:
 - Sergio Lopez-Dubon
 - Alessandro Sgarabotto
 - Alessandro Frascati
-- Stefano Lanzoni
+- Stefano Lanzoni\n\n## Documentation\n\n- [Theory-to-code mapping](docs/theory_code_mapping.md)\n- [Validation strategy and known limitations](docs/validation_strategy.md)\n\n
