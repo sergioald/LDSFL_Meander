@@ -105,6 +105,13 @@ def main() -> None:
     ap.add_argument("--sinuo-equiv-min-points", type=int, default=10, help="Minimum points required for equivalence testing.")
     ap.add_argument("--sinuo-equiv-hac-lags", type=int, default=50, help="Newey-West/HAC lag count for equivalence testing.")
     ap.add_argument("--sinuo-stability-interval", type=int, default=100, help="Check equivalence stability every N completed steps when stopping is enabled.")
+    ap.add_argument(
+        "--return-equivalence-stability",
+        type=int,
+        default=0,
+        choices=[0, 1],
+        help="Compute and return the full equivalence/HAC diagnostic even when not stopping on stability.",
+    )
     ap.add_argument("--no-plots", action="store_true")
     ap.add_argument("--cstab", type=float, default=0.01, help="Timestep stability coefficient")
     ap.add_argument("--geometry-smoothing", type=int, default=1, choices=[0, 1], help="Enable geometry smoothing/filtering")
@@ -186,6 +193,7 @@ def main() -> None:
         sinuo_equiv_min_points=args.sinuo_equiv_min_points,
         sinuo_equiv_hac_lags=args.sinuo_equiv_hac_lags,
         sinuo_stability_interval=args.sinuo_stability_interval,
+        return_equivalence_stability=bool(args.return_equivalence_stability),
         cstab=args.cstab,
         geometry_smoothing_enabled=bool(args.geometry_smoothing),
         geometry_smoothing_factor=args.geometry_smoothing_factor,
