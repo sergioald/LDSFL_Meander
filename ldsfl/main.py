@@ -24,6 +24,17 @@ from .resistance import resistance_function_flagbed
 from .stability import sinuosity_equivalence_stability
 
 
+def initial_curvature(th: np.ndarray) -> np.ndarray:
+    """Curvature for the first flow-field call, matching geometry4's convention.
+
+    ``preprof_3`` already returns the negated tangent angle
+    (``theta = -unwrap(arctan2(dy, dx))``), and ``geometry4`` computes
+    curvature as ``gradient(theta_negated)`` on every subsequent step.
+    Negating again here flips the first-step curvature sign.
+    """
+    return np.gradient(np.asarray(th, dtype=np.float64), edge_order=1)
+
+
 def make_id_files(case_i: int, beta: float, ds: float, theta0: float, flagbed: int, rpic_0: float) -> str:
     parts = [
         str(int(case_i)),
@@ -235,7 +246,7 @@ def run_case(
 
     xap, yap = read_xy(in_dir / "xy.csv")
     s, x, y, th, Ns, deltas, wave_l, valle_l, sinuo = preprof_3(xap, yap, dsliminicial)
-    c = np.gradient(-1.0 * th, edge_order=1)
+    c = initial_curvature(th)
     U = np.zeros_like(x, dtype=np.float64)
 
     rpic, Cf0, CT, CD, phiT, phiD, F0 = resistance_function_flagbed(flagbed, theta0, ds, rpic_0)
@@ -261,7 +272,9 @@ def run_case(
         "cut_cnt",
     ]
     save_var_n = 18
-    T_var = np.full((max(Nprint - 1, 1), save_var_n), np.nan, dtype=np.float64)
+    # One row per solver step within a save block; flushed every Nprint steps
+    # and once more at the end of the run for the final partial block.
+    T_var = np.full((max(Nprint, 1), save_var_n), np.nan, dtype=np.float64)
 
     x_origin = x.copy()
     y_origin = y.copy()
@@ -350,7 +363,7 @@ def run_case(
                 stop_reason = f"stop criteria reached: {', '.join(reached)}"
                 break
 
-            if 1 <= cnt_f <= (Nprint - 1):
+            if 1 <= cnt_f <= Nprint:
                 row = T_var[cnt_f - 1]
                 row[0] = jt
                 row[1] = dt
@@ -464,7 +477,7 @@ def run_case(
                     )
                 save_variables(
                     out_dir,
-                    T_var,
+                    T_var[:cnt_f],
                     Ntstep,
                     jt,
                     var_name,
@@ -475,7 +488,9 @@ def run_case(
                 )
                 save_sinuosity_history(out_dir, id_files, step_hist, sinuo_hist)
                 T_var[:] = np.nan
-                cnt_f = 1
+                # cnt_f is incremented at the end of every iteration, so 0 here
+                # makes the next iteration write into row 0 of the fresh block.
+                cnt_f = 0
                 if tim is not None and t0s is not None:
                     tim["saving"] += float(perf_counter() - t0s)
 
@@ -519,6 +534,7 @@ def run_case(
                 timing=geom_sub,
                 output_units=output_units,
                 output_length_scale=output_length_scale,
+                do_plots=do_plots,
             )
             if tim is not None and t0g is not None:
                 tim["geometry"] += float(perf_counter() - t0g)
@@ -593,6 +609,31 @@ def run_case(
             RuntimeWarning,
             stacklevel=2,
         )
+
+    # Flush the final partial variable-history block. cnt_f is incremented at
+    # the end of each completed iteration, so cnt_f - 1 rows have been recorded
+    # since the last Nprint flush.
+    n_pending = max(0, int(cnt_f) - 1)
+    if n_pending > 0:
+        try:
+            save_variables(
+                out_dir,
+                T_var[:n_pending],
+                Ntstep,
+                jt,
+                var_name,
+                id_files,
+                cut_cnt,
+                output_units=output_units,
+                length_scale=output_length_scale,
+            )
+        except Exception as exc:
+            warnings.warn(
+                f"Final variable history block could not be saved: {exc}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
 
     save_sinuosity_history(out_dir, id_files, step_hist, sinuo_hist)
     stability_info = _sinuosity_stability_metrics(step_hist, sinuo_hist, window=sinuo_window, rel_tol=sinuo_rel_tol)
