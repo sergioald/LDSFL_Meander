@@ -306,7 +306,7 @@ def run_case(
     sinuo_hist: list[float] = [float(sinuo)]
     stability_interval = max(1, int(sinuo_stability_interval))
     use_equivalence_stability = bool(stop_on_sinuosity_stability) or bool(return_equivalence_stability)
-    if use_equivalence_stability:
+    if bool(stop_on_sinuosity_stability):
         stability_info = _combined_sinuosity_stability_metrics(
             step_hist,
             sinuo_hist,
@@ -595,7 +595,7 @@ def run_case(
             steps += 1
             step_hist.append(int(steps))
             sinuo_hist.append(float(sinuo))
-            if use_equivalence_stability and (steps % stability_interval) == 0:
+            if bool(stop_on_sinuosity_stability) and (steps % stability_interval) == 0:
                 stability_info = _combined_sinuosity_stability_metrics(
                     step_hist,
                     sinuo_hist,
@@ -615,7 +615,7 @@ def run_case(
                     window=sinuo_window,
                     rel_tol=sinuo_rel_tol,
                 )
-                if use_equivalence_stability and previous_equivalence is not None:
+                if bool(stop_on_sinuosity_stability) and previous_equivalence is not None:
                     stability_info["equivalence"] = previous_equivalence
 
             jt += 1
