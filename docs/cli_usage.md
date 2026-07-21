@@ -81,20 +81,22 @@ NumPy should be treated as the reference backend. Numba is an acceleration path 
 
 ## Output folders
 
-For a case with output identifier `<case_id>`, results are written under:
+The `--cases` option selects case IDs from `Input/Parameter.csv`, but the generated output directory uses the solver output identifier `id_files`. This identifier is built from the selected case ID and key parameter values, matching the README convention `Output/<id_files>/`.
+
+For a run with generated output identifier `<id_files>`, results are written under:
 
 ```text
-Output/<case_id>/
+Output/<id_files>/
 ```
 
 The main subfolders are:
 
 | Folder | Contents |
 |---|---|
-| `Output/<case_id>/xyu/` | Geometry snapshots with centreline coordinates, arclength, tangent angle, curvature, and migration velocity. |
-| `Output/<case_id>/files/` | Variable-history CSV files and the sinuosity-history CSV file. |
-| `Output/<case_id>/plot/` | PNG planform and sinuosity plots when plotting is enabled. |
-| `Output/<case_id>/xy_cut/` | Cutoff geometry CSV files when cutoffs occur. |
+| `Output/<id_files>/xyu/` | Geometry snapshots with centreline coordinates, arclength, tangent angle, curvature, and migration velocity. |
+| `Output/<id_files>/files/` | Variable-history CSV files and the sinuosity-history CSV file. |
+| `Output/<id_files>/plot/` | PNG planform and sinuosity plots when plotting is enabled. |
+| `Output/<id_files>/xy_cut/` | Cutoff geometry CSV files when cutoffs occur. |
 
 ## Main output files
 
@@ -103,7 +105,7 @@ The main subfolders are:
 Pattern:
 
 ```text
-Output/<case_id>/xyu/xyu_<case_id>_*.csv
+Output/<id_files>/xyu/xyu_<id_files>_*.csv
 ```
 
 Columns:
@@ -122,7 +124,7 @@ Columns:
 Pattern:
 
 ```text
-Output/<case_id>/files/var_<case_id>_*.csv
+Output/<id_files>/files/var_<id_files>_*.csv
 ```
 
 These files store model variables accumulated over saved iteration blocks.
@@ -132,7 +134,7 @@ These files store model variables accumulated over saved iteration blocks.
 Pattern:
 
 ```text
-Output/<case_id>/files/sinuosity_history_<case_id>.csv
+Output/<id_files>/files/sinuosity_history_<id_files>.csv
 ```
 
 Columns:

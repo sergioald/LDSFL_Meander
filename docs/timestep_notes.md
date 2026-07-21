@@ -6,11 +6,13 @@ This page explains how the solver timestep is chosen and how to interpret the sa
 
 The `step` column in the output files is the solver iteration number. It is not, by itself, a dimensional physical time.
 
-For example:
+For example, for a generated output identifier `<id_files>`:
 
 ```text
-Output/<case_id>/files/sinuosity_history_<case_id>.csv
+Output/<id_files>/files/sinuosity_history_<id_files>.csv
 ```
+
+The `id_files` name is generated from the selected input case ID and key parameter values.
 
 contains:
 
