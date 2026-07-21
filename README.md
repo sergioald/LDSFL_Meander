@@ -248,6 +248,7 @@ The repository is intended for **local reproducible reduced-model analysis**. Ge
 ## Documentation
 
 - [v0.6.5 release-notes draft](docs/release_notes_v0_6_5.md)
+- [Run manifest template](docs/run_manifest_template.md)
 
 - [CLI usage guide](docs/cli_usage.md)
 - [macOS GUI and plotting notes](docs/macos_gui_notes.md)

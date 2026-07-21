@@ -1,0 +1,96 @@
+# LDSFL-Meander run manifest template
+#
+# Copy this file into a run archive and replace placeholder values before
+# sharing results in a report, paper, review package, or reproducibility bundle.
+
+schema_version: "ldsfl-run-manifest-v1"
+
+project:
+  name: "LDSFL-Meander example run"
+  repository_url: "https://github.com/sergioald/LDSFL_Meander"
+  commit_sha: "<git rev-parse HEAD>"
+  release_tag: null
+  package_version: "0.6.5"
+
+environment:
+  python_version: "<python --version>"
+  platform: "<Windows/macOS/Linux details>"
+  installation_mode: "editable"  # editable | released-package | local-script
+  dependency_record:
+    pip_freeze_file: "environment/pip_freeze.txt"
+    conda_environment_file: null
+  notes: "Record any local changes, optional dependencies, or GUI/backend notes."
+
+command:
+  interface: "cli"  # cli | gui | python-api
+  command_line: "python -m run_ldsfl --base-dir . --cases 1 --max-steps 1 --no-plots"
+  gui_settings_export: null
+  working_directory: "<absolute-or-relative-run-directory>"
+
+inputs:
+  parameter_csv: "Input/Parameter.csv"
+  xy_csv: "Input/xy.csv"
+  selected_case_ids: [1]
+  input_checksums:
+    Parameter.csv: "<sha256>"
+    xy.csv: "<sha256>"
+
+solver_settings:
+  backend: "numpy"          # numpy is the reference path
+  flow_boundary_condition: "free"
+  flow_parallel: false
+  flow_workers: 0
+  numba_parallel: false
+  numba_fastmath: false
+
+run_controls:
+  ntstep: 100000
+  nprint: 10000
+  max_steps: 1
+  max_sim_time: null
+  max_cut: 100
+  stop_mode: "first"
+  stop_on_steps: true
+  stop_on_time: false
+  stop_on_cutoffs: true
+  stop_on_sinuosity_stability: false
+
+stability_diagnostics:
+  return_equivalence_stability: false
+  sinuo_window: 100
+  sinuo_rel_tol: 0.005
+  sinuo_equiv_transient_step: 40000.0
+  sinuo_equiv_drift_tol: 0.02
+  sinuo_equiv_confidence: 0.90
+  sinuo_equiv_min_points: 10
+  sinuo_equiv_hac_lags: 50
+  sinuo_stability_interval: 100
+
+output:
+  output_units: "dimensionless"
+  output_length_scale: 1.0
+  output_velocity_scale: 1.0
+  id_files: "<generated-by-solver>"
+  output_directory: "Output/<id_files>/"
+  archive_path: "archive/<run-name>.zip"
+  archive_checksum: "<sha256>"
+
+results_summary:
+  completed_steps: null
+  stop_reason: null
+  cutoffs: null
+  final_sinuosity: null
+  notes: "Summarise only after the run is complete."
+
+reproducibility_files:
+  - "run_manifest.yml"
+  - "Input/Parameter.csv"
+  - "Input/xy.csv"
+  - "Output/<id_files>/"
+  - "environment/pip_freeze.txt"
+  - "README_run_notes.md"
+
+citation:
+  software_citation_file: "CITATION.cff"
+  zenodo_concept_doi: "10.5281/zenodo.19945291"
+  release_doi: "<release-specific DOI, if used>"
