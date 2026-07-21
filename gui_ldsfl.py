@@ -1142,6 +1142,7 @@ class LdslGui(tk.Tk):
                 stop_on_steps=config.run.stop_on_steps,
                 stop_on_time=config.run.stop_on_time,
                 stop_on_cutoffs=config.run.stop_on_cutoffs,
+                stop_on_sinuosity_stability=config.run.stop_on_sinuosity_stability,
                 stop_mode=config.run.stop_mode,
                 cstab=config.run.cstab,
                 geometry_smoothing_enabled=config.geometry.smoothing_enabled,
