@@ -102,6 +102,7 @@ HELP = {
     'stop_on_steps': 'Enable or disable the maximum-steps stop criterion.',
     'stop_on_time': 'Enable or disable the maximum simulated time stop criterion.',
     'stop_on_cutoffs': 'Enable or disable the maximum-cutoffs stop criterion.',
+    'stop_on_sinuosity_stability': 'Enable or disable the sinuosity-stability stop criterion. When enabled, the solver can stop after the equivalence-style sinuosity stability diagnostic is satisfied.',
     'save_final_overlay': 'Save the current GUI overlay plot as a PNG in the run output folder after the simulation ends.',
     'save_run_manifest': 'Write a run_manifest.json file into the run output folder containing the resolved inputs, run summary, and output-unit settings.',
     'show_completion_popup': 'Show a popup message when the simulation finishes, stops by criteria, or fails.',
@@ -199,6 +200,7 @@ class LdslGui(tk.Tk):
         self.stop_on_steps_var = tk.BooleanVar(value=True)
         self.stop_on_time_var = tk.BooleanVar(value=False)
         self.stop_on_cutoffs_var = tk.BooleanVar(value=True)
+        self.stop_on_sinuosity_stability_var = tk.BooleanVar(value=False)
         self.live_preview_var = tk.BooleanVar(value=True)
         self.live_every_var = tk.StringVar(value='5')
         self.do_plots_var = tk.BooleanVar(value=False)
@@ -560,6 +562,9 @@ class LdslGui(tk.Tk):
         cut_entry = ttk.Entry(stop_frame, textvariable=self.max_cut_var)
         cut_entry.grid(row=3, column=1, sticky='ew', pady=(4, 0))
         ToolTip(cut_entry, HELP['max_cut'])
+        stability_btn = ttk.Checkbutton(stop_frame, text='Enable sinuosity stability stop', variable=self.stop_on_sinuosity_stability_var)
+        stability_btn.grid(row=4, column=0, columnspan=2, sticky='w', pady=(4, 0))
+        ToolTip(stability_btn, HELP['stop_on_sinuosity_stability'])
         stop_frame.columnconfigure(1, weight=1)
 
         action_frame = ttk.LabelFrame(self.run_tab, text='Actions', padding=10)
@@ -789,6 +794,7 @@ class LdslGui(tk.Tk):
             stop_on_steps=bool(self.stop_on_steps_var.get()),
             stop_on_time=bool(self.stop_on_time_var.get()),
             stop_on_cutoffs=bool(self.stop_on_cutoffs_var.get()),
+            stop_on_sinuosity_stability=bool(self.stop_on_sinuosity_stability_var.get()),
             stop_mode=self.stop_mode_var.get(),
             do_plots=bool(self.do_plots_var.get()),
             save_final_overlay=bool(self.save_final_overlay_var.get()),
@@ -980,6 +986,7 @@ class LdslGui(tk.Tk):
         self.stop_on_steps_var.set(bool(cfg.run.stop_on_steps))
         self.stop_on_time_var.set(bool(cfg.run.stop_on_time))
         self.stop_on_cutoffs_var.set(bool(cfg.run.stop_on_cutoffs))
+        self.stop_on_sinuosity_stability_var.set(bool(getattr(cfg.run, 'stop_on_sinuosity_stability', False)))
         self.stop_mode_var.set(str(cfg.run.stop_mode))
         self.do_plots_var.set(bool(cfg.run.do_plots))
         self.save_final_overlay_var.set(bool(cfg.run.save_final_overlay))
