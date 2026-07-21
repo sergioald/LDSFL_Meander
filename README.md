@@ -255,6 +255,7 @@ The repository is intended for **local reproducible reduced-model analysis**. Ge
 - [CLI usage guide](docs/cli_usage.md)
 - [macOS GUI and plotting notes](docs/macos_gui_notes.md)
 - [Timestep and iteration notes](docs/timestep_notes.md)
+- [Curvature arclength-scaling diagnostic](docs/curvature_arclength_scaling.md)
 - [Project health checklist](docs/project_health_checklist.md)
 
 - [User manual PDF](docs/LDSFL_Meander_user_manual.pdf)
