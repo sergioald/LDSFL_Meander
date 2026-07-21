@@ -104,6 +104,122 @@ def _should_stop(
     return len(reached) > 0
 
 
+def _final_snapshot_velocity(
+    U: np.ndarray,
+    *,
+    x: np.ndarray,
+    y: np.ndarray,
+    s: np.ndarray,
+    th: np.ndarray,
+    c: np.ndarray,
+    Cf0: float,
+    CT: float,
+    CD: float,
+    phiT: float,
+    phiD: float,
+    beta: float,
+    rpic: float,
+    theta0: float,
+    F0: float,
+    Mdat: int,
+    n1: np.ndarray,
+    deltas: float,
+    flow_bc: str,
+    flow_paral: int,
+    n_workers: int,
+    flow_backend: str,
+    numba_parallel: bool,
+    numba_fastmath: bool,
+) -> np.ndarray:
+    """Return a final-snapshot velocity field compatible with the final geometry.
+
+    The solver computes ``U`` before moving and resampling the planform. After a
+    neck cutoff or resampling step the final geometry can contain a different
+    number of points from the last velocity field. Regular in-loop snapshots are
+    saved before the move, so their arrays are naturally aligned. The final
+    snapshot is saved after the loop and must therefore either use the existing
+    velocity field when it is still compatible or recompute a final flow field
+    for the final geometry.
+    """
+    geometry_lengths = {
+        "x": int(np.asarray(x).shape[0]),
+        "y": int(np.asarray(y).shape[0]),
+        "s": int(np.asarray(s).shape[0]),
+        "th": int(np.asarray(th).shape[0]),
+        "c": int(np.asarray(c).shape[0]),
+    }
+    expected = geometry_lengths["x"]
+    inconsistent = {name: length for name, length in geometry_lengths.items() if length != expected}
+    if inconsistent:
+        raise ValueError(f"Final geometry arrays have inconsistent lengths: {geometry_lengths}")
+
+    u_arr = np.asarray(U, dtype=np.float64)
+    if u_arr.shape[0] == expected:
+        return u_arr
+
+    warnings.warn(
+        f"Final velocity length {u_arr.shape[0]} does not match final geometry length {expected}; "
+        "recomputing the final flow field for the final snapshot.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+
+    Ns_final = int(expected)
+    if str(flow_bc).lower().startswith("per"):
+        final_U, _ = parall_u_periodic(
+            c,
+            s,
+            Cf0,
+            CT,
+            CD,
+            phiT,
+            phiD,
+            beta,
+            rpic,
+            theta0,
+            F0,
+            Mdat,
+            1,
+            Ns_final,
+            n1,
+            deltas,
+            paral=int(flow_paral),
+            n_workers=n_workers,
+        )
+    else:
+        final_U, _ = parall_u_free(
+            c,
+            s,
+            Cf0,
+            CT,
+            CD,
+            phiT,
+            phiD,
+            beta,
+            rpic,
+            theta0,
+            F0,
+            Mdat,
+            1,
+            Ns_final,
+            n1,
+            deltas,
+            SL=0,
+            paral=int(flow_paral),
+            n_workers=n_workers,
+            backend=str(flow_backend),
+            numba_parallel=bool(numba_parallel),
+            numba_fastmath=bool(numba_fastmath),
+        )
+
+    final_U = np.asarray(final_U, dtype=np.float64)
+    if final_U.shape[0] != expected:
+        raise ValueError(
+            f"Recomputed final velocity length {final_U.shape[0]} does not match final geometry length {expected}."
+        )
+    return final_U
+
+
 def _sinuosity_stability_metrics(
     step_hist,
     sinuo_hist,
@@ -631,6 +747,32 @@ def run_case(
     # Always write a final geometry snapshot so the GUI can refresh and
     # optionally continue from the last available centerline.
     try:
+        final_U = _final_snapshot_velocity(
+            U,
+            x=x,
+            y=y,
+            s=s,
+            th=th,
+            c=c,
+            Cf0=Cf0,
+            CT=CT,
+            CD=CD,
+            phiT=phiT,
+            phiD=phiD,
+            beta=beta,
+            rpic=rpic,
+            theta0=theta0,
+            F0=F0,
+            Mdat=Mdat,
+            n1=n1,
+            deltas=deltas,
+            flow_bc=flow_bc,
+            flow_paral=flow_paral,
+            n_workers=n_workers,
+            flow_backend=flow_backend,
+            numba_parallel=numba_parallel,
+            numba_fastmath=numba_fastmath,
+        )
         save_xystcu(
             out_dir,
             x,
@@ -638,7 +780,7 @@ def run_case(
             s,
             th,
             c,
-            U,
+            final_U,
             Ntstep,
             jt,
             id_files,
