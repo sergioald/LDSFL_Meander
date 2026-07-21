@@ -47,16 +47,40 @@ def _call_kwargs(n: int, **overrides):
     return kwargs
 
 
-def test_final_snapshot_velocity_keeps_matching_velocity_without_recompute(monkeypatch):
-    def fail_if_called(*args, **kwargs):  # pragma: no cover - only used on failure
-        raise AssertionError("flow field should not be recomputed when lengths already match")
+def test_final_snapshot_velocity_recomputes_free_flow_when_lengths_match(monkeypatch):
+    calls = {}
 
-    monkeypatch.setattr(main_mod, "parall_u_free", fail_if_called)
+    def fake_free(
+        c,
+        s,
+        Cf0,
+        CT,
+        CD,
+        phiT,
+        phiD,
+        beta,
+        rpic,
+        theta0,
+        F0,
+        Mdat,
+        parameter,
+        Ns,
+        n1,
+        deltas,
+        **kwargs,
+    ):
+        calls["Ns"] = Ns
+        calls["backend"] = kwargs.get("backend")
+        calls["SL"] = kwargs.get("SL")
+        return np.array([10.0, 11.0, 12.0], dtype=np.float64), 0
 
-    U = np.array([1.0, 2.0, 3.0], dtype=np.float64)
-    out = _final_snapshot_velocity(U, **_call_kwargs(3))
+    monkeypatch.setattr(main_mod, "parall_u_free", fake_free)
 
-    assert np.array_equal(out, U)
+    stale_U = np.array([1.0, 2.0, 3.0], dtype=np.float64)
+    out = _final_snapshot_velocity(stale_U, **_call_kwargs(3))
+
+    assert np.array_equal(out, np.array([10.0, 11.0, 12.0]))
+    assert calls == {"Ns": 3, "backend": "numpy", "SL": 0}
 
 
 def test_final_snapshot_velocity_recomputes_free_flow_when_length_mismatches(monkeypatch):
@@ -88,8 +112,7 @@ def test_final_snapshot_velocity_recomputes_free_flow_when_length_mismatches(mon
 
     monkeypatch.setattr(main_mod, "parall_u_free", fake_free)
 
-    with pytest.warns(RuntimeWarning, match="Final velocity length 5 does not match final geometry length 3"):
-        out = _final_snapshot_velocity(np.zeros(5), **_call_kwargs(3))
+    out = _final_snapshot_velocity(np.zeros(5), **_call_kwargs(3))
 
     assert np.array_equal(out, np.array([0.0, 1.0, 2.0]))
     assert calls == {"Ns": 3, "backend": "numpy", "SL": 0}
@@ -123,8 +146,7 @@ def test_final_snapshot_velocity_recomputes_periodic_flow_when_length_mismatches
 
     monkeypatch.setattr(main_mod, "parall_u_periodic", fake_periodic)
 
-    with pytest.warns(RuntimeWarning, match="recomputing the final flow field"):
-        out = _final_snapshot_velocity(np.zeros(1), **_call_kwargs(4, flow_bc="periodic", flow_paral=1))
+    out = _final_snapshot_velocity(np.zeros(1), **_call_kwargs(4, flow_bc="periodic", flow_paral=1))
 
     assert np.array_equal(out, np.full(4, 7.0))
     assert calls == {"Ns": 4, "paral": 1}
