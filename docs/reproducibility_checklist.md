@@ -20,7 +20,7 @@ Record these items for every scientific run:
 | Output units | `dimensionless` or `dimensional`, including length/velocity scales if dimensional outputs are used. |
 | Stop criteria | Step/time/cutoff/stability stop settings. |
 | Sinuosity diagnostics | Whether equivalence/HAC diagnostics were requested or used for stopping. |
-| Output archive | The generated `Output/<case_id>/` folder or a checksum of the archive. |
+| Output archive | The generated `Output/<id_files>/` folder, or a checksum of the archive. The `id_files` folder name is generated from the selected case ID and parameter values, for example `Output/1_9_0005_03_2_05/`. |
 
 ## Recommended command log
 
