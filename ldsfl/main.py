@@ -131,15 +131,17 @@ def _final_snapshot_velocity(
     numba_parallel: bool,
     numba_fastmath: bool,
 ) -> np.ndarray:
-    """Return a final-snapshot velocity field compatible with the final geometry.
+    """Recompute a final-snapshot velocity field for the final geometry.
 
-    The solver computes ``U`` before moving and resampling the planform. After a
-    neck cutoff or resampling step the final geometry can contain a different
-    number of points from the last velocity field. Regular in-loop snapshots are
-    saved before the move, so their arrays are naturally aligned. The final
-    snapshot is saved after the loop and must therefore either use the existing
-    velocity field when it is still compatible or recompute a final flow field
-    for the final geometry.
+    The solver computes ``U`` before moving and resampling the planform. Regular
+    in-loop snapshots are saved before that move, so their geometry and velocity
+    arrays are naturally aligned. The final snapshot is saved after the loop,
+    using the latest geometry produced by the most recent move/resampling step.
+
+    That final geometry can be newer than the last velocity field even when the
+    number of centreline points happens to be unchanged. Recompute the final flow
+    field unconditionally so the saved final ``x/y/s/th/c`` and ``U`` all refer
+    to the same centreline state.
     """
     geometry_lengths = {
         "x": int(np.asarray(x).shape[0]),
@@ -152,17 +154,6 @@ def _final_snapshot_velocity(
     inconsistent = {name: length for name, length in geometry_lengths.items() if length != expected}
     if inconsistent:
         raise ValueError(f"Final geometry arrays have inconsistent lengths: {geometry_lengths}")
-
-    u_arr = np.asarray(U, dtype=np.float64)
-    if u_arr.shape[0] == expected:
-        return u_arr
-
-    warnings.warn(
-        f"Final velocity length {u_arr.shape[0]} does not match final geometry length {expected}; "
-        "recomputing the final flow field for the final snapshot.",
-        RuntimeWarning,
-        stacklevel=2,
-    )
 
     Ns_final = int(expected)
     if str(flow_bc).lower().startswith("per"):
