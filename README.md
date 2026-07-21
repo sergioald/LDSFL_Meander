@@ -247,6 +247,10 @@ The repository is intended for **local reproducible reduced-model analysis**. Ge
 
 ## Documentation
 
+- [CLI usage guide](docs/cli_usage.md)
+- [macOS GUI and plotting notes](docs/macos_gui_notes.md)
+- [Timestep and iteration notes](docs/timestep_notes.md)
+
 - [User manual PDF](docs/LDSFL_Meander_user_manual.pdf)
 - [User manual source](docs/LDSFL_Meander_user_manual.tex)
 - [Short Markdown guide](USER_MANUAL.md)
