@@ -179,7 +179,13 @@ def geometry4(
     theta = unwrap_angles_like_matlab(theta_raw)
     theta = -1.0 * theta
 
-    c = matlab_gradient(theta)
+    # Curvature is dtheta/ds, but ``matlab_gradient`` differentiates with respect
+    # to the point *index* (unit spacing). Dividing by the arclength spacing
+    # converts dtheta/di into the physical curvature that ``parall_u_free``
+    # expects. Without this the curvature handed to the flow solver carries a
+    # spurious factor of ``deltas``, which is only harmless while the resampling
+    # target happens to be 1.0.
+    c = matlab_gradient(theta) / deltas
 
     wave_l = float(sa[-1])
     valle_l = float(np.sqrt((xa[0] - xa[-1]) ** 2 + (ya[0] - ya[-1]) ** 2))

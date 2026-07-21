@@ -24,15 +24,22 @@ from .resistance import resistance_function_flagbed
 from .stability import sinuosity_equivalence_stability
 
 
-def initial_curvature(th: np.ndarray) -> np.ndarray:
+def initial_curvature(th: np.ndarray, deltas: float = 1.0) -> np.ndarray:
     """Curvature for the first flow-field call, matching geometry4's convention.
 
     ``preprof_3`` already returns the negated tangent angle
     (``theta = -unwrap(arctan2(dy, dx))``), and ``geometry4`` computes
-    curvature as ``gradient(theta_negated)`` on every subsequent step.
+    curvature as ``gradient(theta_negated) / deltas`` on every subsequent step.
     Negating again here flips the first-step curvature sign.
+
+    ``deltas`` is the centreline arclength spacing. ``np.gradient`` uses unit
+    spacing, so it returns dtheta/d(index); dividing by the spacing gives the
+    physical curvature dtheta/ds. Passing it keeps the first step consistent
+    with every later step and makes the result independent of the sampling
+    resolution of ``Input/xy.csv``. The default of 1.0 preserves the previous
+    behaviour for external callers that do not supply a spacing.
     """
-    return np.gradient(np.asarray(th, dtype=np.float64), edge_order=1)
+    return np.gradient(np.asarray(th, dtype=np.float64), edge_order=1) / float(deltas)
 
 
 def make_id_files(case_i: int, beta: float, ds: float, theta0: float, flagbed: int, rpic_0: float) -> str:
@@ -261,7 +268,7 @@ def run_case(
 
     xap, yap = read_xy(in_dir / "xy.csv")
     s, x, y, th, Ns, deltas, wave_l, valle_l, sinuo = preprof_3(xap, yap, dsliminicial)
-    c = initial_curvature(th)
+    c = initial_curvature(th, deltas)
     U = np.zeros_like(x, dtype=np.float64)
 
     rpic, Cf0, CT, CD, phiT, phiD, F0 = resistance_function_flagbed(flagbed, theta0, ds, rpic_0)
