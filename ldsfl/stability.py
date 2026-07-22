@@ -110,19 +110,20 @@ def sinuosity_equivalence_stability(
     xtx_inv = np.linalg.pinv(design.T @ design)
 
     # Newey-West/HAC covariance for autocorrelated time series residuals.
+    #
+    # Vectorised form of the textbook double loop. With Xe[i] = residual[i] *
+    # design[i], the zero-lag term is Xe.T @ Xe and each lag term is
+    # A + A.T with A = Xe[lag:].T @ Xe[:-lag]. This is algebraically identical
+    # to the elementwise accumulation but replaces O(n * lags) Python-level
+    # iterations with small matrix products.
     lag_count = max(0, min(int(hac_lags), int(x.size) - 1))
-    meat = np.zeros((2, 2), dtype=np.float64)
-    for i in range(x.size):
-        xi = design[i : i + 1].T
-        meat += float(residual[i] ** 2) * (xi @ xi.T)
+    weighted = design * residual[:, None]
+    meat = weighted.T @ weighted
 
     for lag in range(1, lag_count + 1):
         weight = 1.0 - lag / float(lag_count + 1)
-        for i in range(lag, x.size):
-            xi = design[i : i + 1].T
-            xlag = design[i - lag : i - lag + 1].T
-            term = float(residual[i] * residual[i - lag])
-            meat += weight * term * (xi @ xlag.T + xlag @ xi.T)
+        cross = weighted[lag:].T @ weighted[:-lag]
+        meat += weight * (cross + cross.T)
 
     cov = xtx_inv @ meat @ xtx_inv
     slope_var = float(cov[1, 1])
