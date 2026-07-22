@@ -3,6 +3,7 @@ expected_output/1_9_0005_03_2_05/files/
 expected_output/1_9_0005_03_2_05/files/sinuosity_history_1_9_0005_03_2_05.csv
 expected_output/1_9_0005_03_2_05/files/var_1_9_0005_03_2_05_000000_2.csv
 expected_output/1_9_0005_03_2_05/files/var_1_9_0005_03_2_05_000000_4.csv
+expected_output/1_9_0005_03_2_05/files/var_1_9_0005_03_2_05_000000_6.csv
 expected_output/1_9_0005_03_2_05/plot/
 expected_output/1_9_0005_03_2_05/plot/sinuosity_history_1_9_0005_03_2_05.png
 expected_output/1_9_0005_03_2_05/xy_cut/
