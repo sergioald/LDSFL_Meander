@@ -20,6 +20,7 @@ The checks are split by how portable they are:
 from __future__ import annotations
 
 import json
+import platform
 from pathlib import Path
 
 import numpy as np
@@ -118,15 +119,24 @@ def test_recorded_floating_point_values_when_the_environment_matches(example_run
         )
 
     recorded = json.loads(environment_path.read_text(encoding="utf-8"))
-    current = {}
+    current = {
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+    }
     for name in ("numpy", "scipy", "pandas"):
         try:
             current[name] = __import__(name).__version__
         except Exception:
             current[name] = None
-    mismatched = {k: (recorded.get(k), v) for k, v in current.items() if recorded.get(k) != v}
+    try:
+        current["blas"] = str(np.__config__.show(mode="dicts")).replace("\n", " ")[:400]
+    except Exception:
+        current["blas"] = None
+
+    keys = ("python", "platform", "numpy", "scipy", "pandas", "blas")
+    mismatched = {k: (recorded.get(k), current.get(k)) for k in keys if recorded.get(k) != current.get(k)}
     if mismatched:
-        pytest.skip(f"library versions differ from the recorded fixture: {mismatched}")
+        pytest.skip(f"library/BLAS/platform differ from the recorded fixture: {mismatched}")
 
     _workspace, summary = example_run
     expected = _expected_summary()
