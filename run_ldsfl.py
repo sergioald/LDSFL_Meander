@@ -104,6 +104,12 @@ def main() -> None:
     ap.add_argument("--sinuo-equiv-confidence", type=float, default=0.90, help="Confidence level for the equivalence-style drift interval.")
     ap.add_argument("--sinuo-equiv-min-points", type=int, default=10, help="Minimum points required for equivalence testing.")
     ap.add_argument("--sinuo-equiv-hac-lags", type=int, default=50, help="Newey-West/HAC lag count for equivalence testing.")
+    ap.add_argument(
+        "--sinuo-equiv-method",
+        choices=["increment", "hac"],
+        default="increment",
+        help="Equivalence drift estimator: increment is robust for unit-root-like histories; hac preserves the previous OLS/HAC path.",
+    )
     ap.add_argument("--sinuo-stability-interval", type=int, default=100, help="Check equivalence stability every N completed steps when stopping is enabled.")
     ap.add_argument(
         "--return-equivalence-stability",
@@ -192,6 +198,7 @@ def main() -> None:
         sinuo_equiv_confidence=args.sinuo_equiv_confidence,
         sinuo_equiv_min_points=args.sinuo_equiv_min_points,
         sinuo_equiv_hac_lags=args.sinuo_equiv_hac_lags,
+        sinuo_equiv_method=args.sinuo_equiv_method,
         sinuo_stability_interval=args.sinuo_stability_interval,
         return_equivalence_stability=bool(args.return_equivalence_stability),
         cstab=args.cstab,

@@ -305,6 +305,7 @@ def _combined_sinuosity_stability_metrics(
     equivalence_confidence: float = 0.90,
     equivalence_min_points: int = 10,
     equivalence_hac_lags: int = 50,
+    equivalence_method: str = "increment",
 ) -> dict:
     """Return moving-window and equivalence-style sinuosity diagnostics."""
     stability = _sinuosity_stability_metrics(step_hist, sinuo_hist, window=window, rel_tol=rel_tol)
@@ -316,6 +317,7 @@ def _combined_sinuosity_stability_metrics(
         confidence=equivalence_confidence,
         min_points=equivalence_min_points,
         hac_lags=equivalence_hac_lags,
+        method=equivalence_method,
     )
     return stability
 
@@ -358,6 +360,7 @@ def run_case(
     sinuo_equiv_confidence: float = 0.90,
     sinuo_equiv_min_points: int = 10,
     sinuo_equiv_hac_lags: int = 50,
+    sinuo_equiv_method: str = "increment",
     sinuo_stability_interval: int = 100,
     return_equivalence_stability: bool = False,
     stop_requested_callback=None,
@@ -367,6 +370,14 @@ def run_case(
     in_dir = base_dir / "Input"
     out_dir = base_dir / "Output"
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    if not (
+        bool(stop_on_steps)
+        or bool(stop_on_time)
+        or bool(stop_on_cutoffs)
+        or bool(stop_on_sinuosity_stability)
+    ):
+        raise ValueError("At least one stop criterion must be enabled.")
 
     df = read_parameter_table(in_dir / "Parameter.csv")
     beta, ds, theta0, flagbed, rpic_0, Mdat = dimensionless_input_table(df, case_i)
@@ -431,6 +442,7 @@ def run_case(
             equivalence_confidence=sinuo_equiv_confidence,
             equivalence_min_points=sinuo_equiv_min_points,
             equivalence_hac_lags=sinuo_equiv_hac_lags,
+                equivalence_method=sinuo_equiv_method,
         )
     else:
         stability_info = _sinuosity_stability_metrics(
@@ -720,6 +732,7 @@ def run_case(
                     equivalence_confidence=sinuo_equiv_confidence,
                     equivalence_min_points=sinuo_equiv_min_points,
                     equivalence_hac_lags=sinuo_equiv_hac_lags,
+                equivalence_method=sinuo_equiv_method,
                 )
             else:
                 previous_equivalence = (stability_info or {}).get("equivalence")
@@ -838,6 +851,7 @@ def run_case(
             equivalence_confidence=sinuo_equiv_confidence,
             equivalence_min_points=sinuo_equiv_min_points,
             equivalence_hac_lags=sinuo_equiv_hac_lags,
+                equivalence_method=sinuo_equiv_method,
         )
     else:
         stability_info = _sinuosity_stability_metrics(
