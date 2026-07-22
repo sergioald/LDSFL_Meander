@@ -103,6 +103,13 @@ HELP = {
     'stop_on_time': 'Enable or disable the maximum simulated time stop criterion.',
     'stop_on_cutoffs': 'Enable or disable the maximum-cutoffs stop criterion.',
     'stop_on_sinuosity_stability': 'Enable or disable the sinuosity-stability stop criterion. When enabled, the solver can stop after the equivalence-style sinuosity stability diagnostic is satisfied.',
+    'sinuo_equiv_transient_step': 'First solver step included in the equivalence-style diagnostic. Leave blank to use all available history.',
+    'sinuo_equiv_drift_tol': 'Maximum practically negligible total sinuosity drift over the analysis window.',
+    'sinuo_equiv_confidence': 'Confidence level for the equivalence-style drift interval.',
+    'sinuo_equiv_min_points': 'Minimum number of history points required for the equivalence diagnostic.',
+    'sinuo_equiv_hac_lags': 'Newey-West/HAC lag count used only when the HAC estimator is selected.',
+    'sinuo_equiv_method': 'Equivalence drift estimator. Increment is the default and is safer for unit-root-like histories; HAC keeps the older OLS/HAC path.',
+    'sinuo_stability_interval': 'Check equivalence stability every N completed solver steps when the stability stop is enabled.',
     'save_final_overlay': 'Save the current GUI overlay plot as a PNG in the run output folder after the simulation ends.',
     'save_run_manifest': 'Write a run_manifest.json file into the run output folder containing the resolved inputs, run summary, and output-unit settings.',
     'show_completion_popup': 'Show a popup message when the simulation finishes, stops by criteria, or fails.',
@@ -218,6 +225,13 @@ class LdslGui(tk.Tk):
         self.cstab_var = tk.StringVar(value='0.01')
         self.sinuo_window_var = tk.StringVar(value='100')
         self.sinuo_rel_tol_var = tk.StringVar(value='0.005')
+        self.sinuo_equiv_transient_step_var = tk.StringVar(value='40000')
+        self.sinuo_equiv_drift_tol_var = tk.StringVar(value='0.02')
+        self.sinuo_equiv_confidence_var = tk.StringVar(value='0.90')
+        self.sinuo_equiv_min_points_var = tk.StringVar(value='10')
+        self.sinuo_equiv_hac_lags_var = tk.StringVar(value='50')
+        self.sinuo_equiv_method_var = tk.StringVar(value='increment')
+        self.sinuo_stability_interval_var = tk.StringVar(value='100')
         self.sinuo_state_var = tk.StringVar(value='Not available')
         self.sinuo_current_var = tk.StringVar(value='—')
         self.sinuo_window_used_var = tk.StringVar(value='—')
@@ -540,6 +554,13 @@ class LdslGui(tk.Tk):
         ToolTip(numba_fastmath_btn, HELP['numba_fastmath'])
         self._entry_row(advanced, 7, 'Sinuosity stability window', self.sinuo_window_var, HELP['sinuo_window'])
         self._entry_row(advanced, 8, 'Sinuosity relative tolerance', self.sinuo_rel_tol_var, HELP['sinuo_rel_tol'])
+        self._combobox_row(advanced, 9, 'Equivalence method', self.sinuo_equiv_method_var, ['increment', 'hac'], help_key='sinuo_equiv_method')
+        self._entry_row(advanced, 10, 'Equiv. transient step', self.sinuo_equiv_transient_step_var, HELP['sinuo_equiv_transient_step'])
+        self._entry_row(advanced, 11, 'Equiv. drift tolerance', self.sinuo_equiv_drift_tol_var, HELP['sinuo_equiv_drift_tol'])
+        self._entry_row(advanced, 12, 'Equiv. confidence', self.sinuo_equiv_confidence_var, HELP['sinuo_equiv_confidence'])
+        self._entry_row(advanced, 13, 'Equiv. min points', self.sinuo_equiv_min_points_var, HELP['sinuo_equiv_min_points'])
+        self._entry_row(advanced, 14, 'Equiv. HAC lags', self.sinuo_equiv_hac_lags_var, HELP['sinuo_equiv_hac_lags'])
+        self._entry_row(advanced, 15, 'Stability check interval', self.sinuo_stability_interval_var, HELP['sinuo_stability_interval'])
 
         stop_frame = ttk.LabelFrame(self.run_tab, text='Stop criteria', padding=10)
         stop_frame.pack(fill='x', pady=(8, 8))
@@ -783,6 +804,10 @@ class LdslGui(tk.Tk):
             return min(nprint, live_every)
         return nprint
 
+    def _optional_float_from_var(self, var: tk.StringVar) -> float | None:
+        text = str(var.get()).strip()
+        return None if text == '' else float(text)
+
     def _build_config(self) -> GuiCaseConfig:
         run = RunControls(
             case_id=int(self.case_id_var.get()),
@@ -809,6 +834,13 @@ class LdslGui(tk.Tk):
             cstab=float(self.cstab_var.get()),
             sinuo_window=int(self.sinuo_window_var.get()),
             sinuo_rel_tol=float(self.sinuo_rel_tol_var.get()),
+            sinuo_equiv_transient_step=self._optional_float_from_var(self.sinuo_equiv_transient_step_var),
+            sinuo_equiv_drift_tol=float(self._safe_tk_string('sinuo_equiv_drift_tol_var', '0.02')),
+            sinuo_equiv_confidence=float(self._safe_tk_string('sinuo_equiv_confidence_var', '0.90')),
+            sinuo_equiv_min_points=int(self._safe_tk_string('sinuo_equiv_min_points_var', '10')),
+            sinuo_equiv_hac_lags=int(self._safe_tk_string('sinuo_equiv_hac_lags_var', '50')),
+            sinuo_equiv_method=str(self._safe_tk_string('sinuo_equiv_method_var', 'increment')),
+            sinuo_stability_interval=int(self._safe_tk_string('sinuo_stability_interval_var', '100')),
         )
         kwargs = {
             'mode': self.mode_var.get(),
@@ -932,6 +964,13 @@ class LdslGui(tk.Tk):
                     'show_completion_popup': bool(self.show_completion_popup_var.get()),
                     'sinuo_window': self.sinuo_window_var.get(),
                     'sinuo_rel_tol': self.sinuo_rel_tol_var.get(),
+                    'sinuo_equiv_transient_step': self._safe_tk_string('sinuo_equiv_transient_step_var', '40000'),
+                    'sinuo_equiv_drift_tol': self._safe_tk_string('sinuo_equiv_drift_tol_var', '0.02'),
+                    'sinuo_equiv_confidence': self._safe_tk_string('sinuo_equiv_confidence_var', '0.90'),
+                    'sinuo_equiv_min_points': self._safe_tk_string('sinuo_equiv_min_points_var', '10'),
+                    'sinuo_equiv_hac_lags': self._safe_tk_string('sinuo_equiv_hac_lags_var', '50'),
+                    'sinuo_equiv_method': self._safe_tk_string('sinuo_equiv_method_var', 'increment'),
+                    'sinuo_stability_interval': self._safe_tk_string('sinuo_stability_interval_var', '100'),
                 },
             }
             path = filedialog.asksaveasfilename(title='Save LDSFL-Meander config', defaultextension='.json', filetypes=[('JSON files', '*.json')])
@@ -958,6 +997,13 @@ class LdslGui(tk.Tk):
             self.show_completion_popup_var.set(bool(gui_state.get('show_completion_popup', True)))
             self.sinuo_window_var.set(str(gui_state.get('sinuo_window', getattr(cfg.run, 'sinuo_window', 100))))
             self.sinuo_rel_tol_var.set(str(gui_state.get('sinuo_rel_tol', getattr(cfg.run, 'sinuo_rel_tol', 0.005))))
+            self.sinuo_equiv_transient_step_var.set(str(gui_state.get('sinuo_equiv_transient_step', getattr(cfg.run, 'sinuo_equiv_transient_step', 40000.0)) or ''))
+            self.sinuo_equiv_drift_tol_var.set(str(gui_state.get('sinuo_equiv_drift_tol', getattr(cfg.run, 'sinuo_equiv_drift_tol', 0.02))))
+            self.sinuo_equiv_confidence_var.set(str(gui_state.get('sinuo_equiv_confidence', getattr(cfg.run, 'sinuo_equiv_confidence', 0.90))))
+            self.sinuo_equiv_min_points_var.set(str(gui_state.get('sinuo_equiv_min_points', getattr(cfg.run, 'sinuo_equiv_min_points', 10))))
+            self.sinuo_equiv_hac_lags_var.set(str(gui_state.get('sinuo_equiv_hac_lags', getattr(cfg.run, 'sinuo_equiv_hac_lags', 50))))
+            self.sinuo_equiv_method_var.set(str(gui_state.get('sinuo_equiv_method', getattr(cfg.run, 'sinuo_equiv_method', 'increment'))))
+            self.sinuo_stability_interval_var.set(str(gui_state.get('sinuo_stability_interval', getattr(cfg.run, 'sinuo_stability_interval', 100))))
             self._sync_mode()
             self._sync_advanced()
             self._sync_dimensional_fields()
@@ -1001,6 +1047,14 @@ class LdslGui(tk.Tk):
         self.cstab_var.set(str(cfg.run.cstab))
         self.sinuo_window_var.set(str(getattr(cfg.run, 'sinuo_window', 100)))
         self.sinuo_rel_tol_var.set(str(getattr(cfg.run, 'sinuo_rel_tol', 0.005)))
+        transient = getattr(cfg.run, 'sinuo_equiv_transient_step', 40000.0)
+        self.sinuo_equiv_transient_step_var.set('' if transient is None else str(transient))
+        self.sinuo_equiv_drift_tol_var.set(str(getattr(cfg.run, 'sinuo_equiv_drift_tol', 0.02)))
+        self.sinuo_equiv_confidence_var.set(str(getattr(cfg.run, 'sinuo_equiv_confidence', 0.90)))
+        self.sinuo_equiv_min_points_var.set(str(getattr(cfg.run, 'sinuo_equiv_min_points', 10)))
+        self.sinuo_equiv_hac_lags_var.set(str(getattr(cfg.run, 'sinuo_equiv_hac_lags', 50)))
+        self.sinuo_equiv_method_var.set(str(getattr(cfg.run, 'sinuo_equiv_method', 'increment')))
+        self.sinuo_stability_interval_var.set(str(getattr(cfg.run, 'sinuo_stability_interval', 100)))
         if cfg.dimensionless is not None:
             self.beta_var.set(str(cfg.dimensionless.beta))
             self.ds_var.set(str(cfg.dimensionless.ds))
@@ -1169,6 +1223,13 @@ class LdslGui(tk.Tk):
                 output_velocity_scale=scales['output_velocity_scale'],
                 sinuo_window=config.run.sinuo_window,
                 sinuo_rel_tol=config.run.sinuo_rel_tol,
+                sinuo_equiv_transient_step=config.run.sinuo_equiv_transient_step,
+                sinuo_equiv_drift_tol=config.run.sinuo_equiv_drift_tol,
+                sinuo_equiv_confidence=config.run.sinuo_equiv_confidence,
+                sinuo_equiv_min_points=config.run.sinuo_equiv_min_points,
+                sinuo_equiv_hac_lags=config.run.sinuo_equiv_hac_lags,
+                sinuo_equiv_method=config.run.sinuo_equiv_method,
+                sinuo_stability_interval=config.run.sinuo_stability_interval,
                 stop_requested_callback=self.stop_requested_event.is_set,
             )
             result = results[0]
@@ -1362,6 +1423,27 @@ class LdslGui(tk.Tk):
             top=0.83,
         )
 
+    def _safe_tk_string(self, attr_name: str, default: str) -> str:
+        """Read an optional Tk StringVar-like attribute without triggering Tk.__getattr__.
+
+        Some tests construct the GUI object without initialising tk.Tk. In that
+        state, normal missing-attribute lookup on a Tk subclass can recurse
+        through tkinter internals. Access __dict__ directly and fall back to a
+        supplied default so live diagnostic helpers also work on lightweight
+        test objects and older configs.
+        """
+        try:
+            variable = self.__dict__.get(attr_name)
+            if variable is None:
+                return default
+            value = variable.get()
+        except Exception:
+            return default
+        if value is None:
+            return default
+        value = str(value)
+        return value if value.strip() else default
+
     def _clear_sinuosity_panel(self):
         self.sinuosity_ax.clear()
         self.sinuosity_ax.set_title('Sinuosity evolution')
@@ -1373,6 +1455,10 @@ class LdslGui(tk.Tk):
         self.sinuo_window_used_var.set('—')
         self.sinuo_rel_span_var.set('—')
         self.sinuo_rel_trend_var.set('—')
+        self.sinuo_equiv_state_var.set('—')
+        self.sinuo_equiv_drift_var.set('—')
+        self.sinuo_equiv_ci_var.set('—')
+        self.sinuo_equiv_tol_var.set('—')
         self._layout_sinuosity_figure()
         if self.sinuosity_canvas is not None:
             self.sinuosity_canvas.draw_idle()
@@ -1388,6 +1474,27 @@ class LdslGui(tk.Tk):
             rel_tol = float(self.sinuo_rel_tol_var.get())
         except Exception:
             rel_tol = 5.0e-3
+        try:
+            equiv_transient = self._optional_float_from_var(self.sinuo_equiv_transient_step_var)
+        except Exception:
+            equiv_transient = 40_000.0
+        try:
+            equiv_drift_tol = float(self._safe_tk_string('sinuo_equiv_drift_tol_var', '0.02'))
+        except Exception:
+            equiv_drift_tol = 0.02
+        try:
+            equiv_confidence = float(self._safe_tk_string('sinuo_equiv_confidence_var', '0.90'))
+        except Exception:
+            equiv_confidence = 0.90
+        try:
+            equiv_min_points = int(self._safe_tk_string('sinuo_equiv_min_points_var', '10'))
+        except Exception:
+            equiv_min_points = 10
+        try:
+            equiv_hac_lags = int(self._safe_tk_string('sinuo_equiv_hac_lags_var', '50'))
+        except Exception:
+            equiv_hac_lags = 50
+        equiv_method = str(self._safe_tk_string('sinuo_equiv_method_var', 'increment') or 'increment')
 
         if vals.size == 0:
             return {
@@ -1452,9 +1559,12 @@ class LdslGui(tk.Tk):
             result['equivalence'] = sinuosity_equivalence_stability(
                 steps,
                 vals,
-                transient_step=40_000,
-                drift_tolerance=0.02,
-                confidence=0.90,
+                transient_step=equiv_transient,
+                drift_tolerance=equiv_drift_tol,
+                confidence=equiv_confidence,
+                min_points=equiv_min_points,
+                hac_lags=equiv_hac_lags,
+                method=equiv_method,
             )
         except Exception:
             result['equivalence'] = {
@@ -1487,6 +1597,18 @@ class LdslGui(tk.Tk):
         self.sinuo_window_used_var.set(str(stability.get('window_used', '—')))
         self.sinuo_rel_span_var.set(self._format_metric(stability.get('rel_span')))
         self.sinuo_rel_trend_var.set(self._format_metric(stability.get('rel_trend_per_step')))
+        equiv = stability.get('equivalence') or {}
+        method = equiv.get('method')
+        state = str(equiv.get('state', 'not available'))
+        if method:
+            state = f'{state} ({method})'
+        self.sinuo_equiv_state_var.set(state)
+        self.sinuo_equiv_drift_var.set(self._format_metric(equiv.get('estimated_total_drift')))
+        lo = self._format_metric(equiv.get('drift_ci_low'))
+        hi = self._format_metric(equiv.get('drift_ci_high'))
+        self.sinuo_equiv_ci_var.set(f'[{lo}, {hi}]' if lo != '—' and hi != '—' else '—')
+        tol = equiv.get('drift_tolerance', self._safe_tk_string('sinuo_equiv_drift_tol_var', '0.02'))
+        self.sinuo_equiv_tol_var.set(f'±{self._format_metric(tol)}')
 
     def _refresh_sinuosity_panel(self, log_errors: bool = True):
         try:

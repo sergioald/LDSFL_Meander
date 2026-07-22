@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import math
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Literal
 
@@ -207,6 +207,13 @@ class RunControls:
     cstab: float = 0.01
     sinuo_window: int = 100
     sinuo_rel_tol: float = 5.0e-3
+    sinuo_equiv_transient_step: float | None = 40_000.0
+    sinuo_equiv_drift_tol: float = 0.02
+    sinuo_equiv_confidence: float = 0.90
+    sinuo_equiv_min_points: int = 10
+    sinuo_equiv_hac_lags: int = 50
+    sinuo_equiv_method: str = "increment"
+    sinuo_stability_interval: int = 100
 
 
 @dataclass
@@ -434,6 +441,13 @@ def preview_case_config(config: GuiCaseConfig) -> dict:
         "cstab": float(config.run.cstab),
         "sinuo_window": int(config.run.sinuo_window),
         "sinuo_rel_tol": float(config.run.sinuo_rel_tol),
+        "sinuo_equiv_transient_step": None if config.run.sinuo_equiv_transient_step is None else float(config.run.sinuo_equiv_transient_step),
+        "sinuo_equiv_drift_tol": float(config.run.sinuo_equiv_drift_tol),
+        "sinuo_equiv_confidence": float(config.run.sinuo_equiv_confidence),
+        "sinuo_equiv_min_points": int(config.run.sinuo_equiv_min_points),
+        "sinuo_equiv_hac_lags": int(config.run.sinuo_equiv_hac_lags),
+        "sinuo_equiv_method": str(config.run.sinuo_equiv_method),
+        "sinuo_stability_interval": int(config.run.sinuo_stability_interval),
         "stop_mode": config.run.stop_mode,
         "stop_on_steps": bool(config.run.stop_on_steps),
         "stop_on_time": bool(config.run.stop_on_time),
@@ -473,6 +487,20 @@ def validate_case_config(config: GuiCaseConfig) -> list[str]:
         raise ValueError("Sinuosity stability window must be >= 2")
     if config.run.sinuo_rel_tol <= 0.0:
         raise ValueError("Sinuosity relative tolerance must be > 0")
+    if config.run.sinuo_equiv_transient_step is not None and config.run.sinuo_equiv_transient_step < 0.0:
+        raise ValueError("Equivalence transient step must be >= 0, or None to use all history")
+    if config.run.sinuo_equiv_drift_tol <= 0.0:
+        raise ValueError("Equivalence drift tolerance must be > 0")
+    if not (0.0 < config.run.sinuo_equiv_confidence < 1.0):
+        raise ValueError("Equivalence confidence must be between 0 and 1")
+    if config.run.sinuo_equiv_min_points < 3:
+        raise ValueError("Equivalence minimum points must be >= 3")
+    if config.run.sinuo_equiv_hac_lags < 0:
+        raise ValueError("Equivalence HAC lags must be >= 0")
+    if str(config.run.sinuo_equiv_method).lower() not in {"increment", "hac"}:
+        raise ValueError("Equivalence method must be 'increment' or 'hac'")
+    if config.run.sinuo_stability_interval < 1:
+        raise ValueError("Sinuosity stability check interval must be >= 1")
     if not (
         config.run.stop_on_steps
         or config.run.stop_on_time
@@ -545,7 +573,9 @@ def config_to_dict(config: GuiCaseConfig) -> dict:
 
 
 def config_from_dict(data: dict) -> GuiCaseConfig:
-    run = RunControls(**data["run"])
+    run_data = dict(data["run"])
+    run_fields = {field.name for field in fields(RunControls)}
+    run = RunControls(**{key: value for key, value in run_data.items() if key in run_fields})
     dimless = DimensionlessInputs(**data["dimensionless"]) if data.get("dimensionless") else None
 
     dimensional_data = dict(data.get("dimensional") or {})
