@@ -49,3 +49,11 @@ def test_gui_sinuosity_metrics_compute_not_stable_state_without_full_tk_app():
     assert stability["quasi_stable"] is False
     assert stability["window_used"] == 5
     assert stability["sinuo_final"] == pytest.approx(2.0)
+
+def test_gui_raw_equivalence_transient_step_preserves_blank_without_default():
+    gui = _make_gui_without_tk(window=5, rel_tol=5.0e-3)
+    gui.sinuo_equiv_transient_step_var = _DummyVar("")
+
+    assert gui._raw_tk_string("sinuo_equiv_transient_step_var", "") == ""
+    assert gui._safe_tk_string("sinuo_equiv_transient_step_var", "40000") == "40000"
+
