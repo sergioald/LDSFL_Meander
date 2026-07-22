@@ -964,7 +964,7 @@ class LdslGui(tk.Tk):
                     'show_completion_popup': bool(self.show_completion_popup_var.get()),
                     'sinuo_window': self.sinuo_window_var.get(),
                     'sinuo_rel_tol': self.sinuo_rel_tol_var.get(),
-                    'sinuo_equiv_transient_step': self._safe_tk_string('sinuo_equiv_transient_step_var', '40000'),
+                    'sinuo_equiv_transient_step': self._raw_tk_string('sinuo_equiv_transient_step_var', ''),
                     'sinuo_equiv_drift_tol': self._safe_tk_string('sinuo_equiv_drift_tol_var', '0.02'),
                     'sinuo_equiv_confidence': self._safe_tk_string('sinuo_equiv_confidence_var', '0.90'),
                     'sinuo_equiv_min_points': self._safe_tk_string('sinuo_equiv_min_points_var', '10'),
@@ -1443,6 +1443,26 @@ class LdslGui(tk.Tk):
             return default
         value = str(value)
         return value if value.strip() else default
+
+    def _raw_tk_string(self, attr_name: str, default: str = "") -> str:
+        """Read an optional Tk StringVar-like attribute and preserve blank values.
+
+        ``_safe_tk_string`` is useful for live diagnostics because blank values
+        should fall back to numeric defaults there. Config saving is different:
+        a blank equivalence transient-step field is meaningful and represents
+        all-history analysis, so it must be written back as ``""`` rather than
+        the displayed default.
+        """
+        try:
+            variable = self.__dict__.get(attr_name)
+            if variable is None:
+                return default
+            value = variable.get()
+        except Exception:
+            return default
+        if value is None:
+            return default
+        return str(value)
 
     def _clear_sinuosity_panel(self):
         self.sinuosity_ax.clear()
