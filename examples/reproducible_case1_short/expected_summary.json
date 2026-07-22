@@ -1,23 +1,33 @@
 {
-  "id_files": "1_9_0005_03_2_05",
-  "steps": 5,
+  "Mdat": 6,
+  "beta": 8.999981100713395,
   "cut_cnt": 0,
+  "ds": 0.004999989500396332,
+  "dt_cum": 142022817.03671196,
+  "flagbed": 2,
+  "id_files": "1_9_0005_03_2_05",
   "jt": 6,
-  "dt_cum": 130028324.87842539,
-  "sinuo_final": 1.0001052460805833,
+  "output_length_scale": 1.0,
+  "output_units": "dimensionless",
+  "output_velocity_scale": 1.0,
+  "rpic_0": 0.5,
+  "sinuo_final": 1.00011549330831,
   "sinuosity_stability": {
-    "state": "stable",
-    "stable": true,
     "quasi_stable": true,
+    "rel_last_change": 3.1457610000564835e-06,
+    "rel_span": 1.0929572687541554e-05,
+    "rel_trend_per_step": 1.9677434497795437e-06,
+    "sinuo_final": 1.00011549330831,
+    "stable": true,
+    "state": "stable",
     "window_requested": 100,
-    "window_used": 6,
-    "rel_span": 8.097452981682685e-06,
-    "rel_last_change": 3.385492185124532e-07,
-    "rel_trend_per_step": 1.0620583041942642e-06,
-    "sinuo_final": 1.0001052460805833
+    "window_used": 6
   },
-  "stop_reason": "stop criteria reached: max_steps",
+  "steps": 5,
   "stop_criteria_reached": [
     "max_steps"
-  ]
+  ],
+  "stop_reason": "stop criteria reached: max_steps",
+  "theta0": 0.29999808102822406,
+  "timings": null
 }

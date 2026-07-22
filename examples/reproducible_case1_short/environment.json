@@ -1,0 +1,9 @@
+{
+  "blas": "{'Compilers': {'c': {'name': 'msvc', 'linker': 'link', 'version': '19.44.35226', 'commands': 'cl'}, 'cython': {'name': 'cython', 'linker': 'cython', 'version': '3.2.4', 'commands': 'cython'}, 'c++': {'name': 'msvc', 'linker': 'link', 'version': '19.44.35226', 'commands': 'cl'}}, 'Machine Information': {'host': {'cpu': 'x86_64', 'family': 'x86_64', 'endian': 'little', 'system': 'windows'}, 'build':",
+  "matplotlib": "3.10.9",
+  "numpy": "2.4.6",
+  "pandas": "3.0.3",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "python": "3.11.15",
+  "scipy": "1.17.1"
+}
