@@ -281,9 +281,20 @@ def _precompute_modes(
 
 
 def _compute_flag(lamb2: np.ndarray) -> int:
-    idx = 5 if lamb2.size >= 6 else max(0, lamb2.size - 1)
-    return 1 if np.real(lamb2[idx]) < 0 else -1
+    """Resonance indicator: +1 sub-resonant, -1 super-resonant.
 
+    The sign of ``Re(lambda2)`` for the fundamental lateral mode distinguishes
+    the two regimes: it is negative below the resonant aspect ratio and
+    positive above it. This transition flips bend migration from
+    downstream- to upstream-dominated in the Zolezzi-Seminara model family.
+
+    The previous implementation indexed mode 6 (``idx = 5``) rather than mode
+    1. Mode 6 remains strongly negative across realistic aspect ratios, so the
+    reported flag was effectively constant. Mode 1 crosses zero at ``beta_R``.
+    """
+    if lamb2.size == 0:
+        return 1
+    return 1 if np.real(lamb2[0]) < 0 else -1
 
 # --------------------------
 # Periodic BC core (dUZSBC1)

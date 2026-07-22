@@ -21,6 +21,7 @@ from .inputs import dimensionless_input_table, read_parameter_table, read_xy
 from .outputs import ensure_dirs, plot_it, save_sinuosity_history, save_variables, save_xystcu
 from .profile import preprof_3
 from .resistance import resistance_function_flagbed
+from .resonance import resonance_report
 from .stability import sinuosity_equivalence_stability
 
 
@@ -880,6 +881,7 @@ def run_case(
         "output_length_scale": output_length_scale,
         "output_velocity_scale": output_velocity_scale,
         "sinuo_final": float(sinuo_hist[-1]),
+        "resonance": resonance_report(beta, theta0, ds, rpic_0, flagbed, Mdat),
         "sinuosity_stability": stability_info,
     }
 
