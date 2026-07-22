@@ -113,3 +113,12 @@ def test_resonance_report_is_included_in_run_summary(tmp_path):
     assert report["state"] in {"sub-resonant", "near-resonant", "super-resonant", "resonant"}
     assert report["flag"] in {1, -1}
     assert report["resonant_beta"] is None or report["resonant_beta"] > 0.0
+
+def test_fast_fundamental_decay_matches_full_mode_precompute():
+    """The lightweight diagnostic path must match the full first-mode solve."""
+    beta = 9.0
+    rpic, cf0, ct, cd, phit, phid, f0 = resistance_function_flagbed(2, THETA0, DS, RPIC0)
+    full_lamb2 = _precompute_modes(cf0, ct, cd, phit, phid, beta, rpic, THETA0, f0, 1)[2]
+
+    assert fundamental_decay_rate(beta, THETA0, DS, RPIC0) == pytest.approx(full_lamb2[0].real)
+
