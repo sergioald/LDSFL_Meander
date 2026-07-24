@@ -4,36 +4,35 @@ from __future__ import annotations
 import copy
 import json
 import threading
+import tkinter as tk
 import traceback
 from pathlib import Path
-import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+import numpy as np
 import pandas as pd
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
-import numpy as np
 
+from ldsfl import __version__
 from ldsfl.gui_utils import (
-    DimensionlessInputs,
     DimensionalInputs,
-    GuiCaseConfig,
+    DimensionlessInputs,
     GeometrySettings,
+    GuiCaseConfig,
     RunControls,
     build_scaled_xy_table,
-    parse_geometry_csv,
     compute_id_files,
     config_from_dict,
     config_to_dict,
     output_scales,
+    parse_geometry_csv,
     preview_case_config,
     validate_case_config,
     write_case_inputs,
 )
 from ldsfl.main import run_project
 from ldsfl.stability import sinuosity_equivalence_stability
-from ldsfl import __version__
-
 
 BED_OPTIONS = {
     '1 - plane bed': 1,
@@ -95,6 +94,12 @@ HELP = {
     'numba_parallel': 'Enable Numba parallel kernels where supported. This can speed up runs but may oversubscribe CPU cores when combined with flow_paral=1.',
     'numba_fastmath': 'Allow Numba fast-math optimizations. This may improve speed slightly at the cost of stricter IEEE math behavior.',
     'cstab': 'Stability coefficient controlling timestep size. Smaller values are safer but slower; larger values are faster but may become unstable.',
+    'erosion_rate': (
+        'Bank-erodibility / migration-rate coefficient. The historical default '
+        'is 1e-8. Because the solver adapts dt inversely to migration speed, this '
+        'mainly changes cumulative simulated time; geometry per solver step is '
+        'normally almost unchanged.'
+    ),
     'sinuo_window': 'Number of stored sinuosity values used for stable/quasi-stable assessment. A default of 100 is conservative for long runs.',
     'sinuo_rel_tol': 'Relative tolerance used for sinuosity stability. Default 0.005 means about 0.5 percent over the stability window.',
     'max_sim_time': 'Maximum cumulative simulated time before stopping. Set 0 to disable this criterion.',
@@ -223,6 +228,7 @@ class LdslGui(tk.Tk):
         self.numba_parallel_var = tk.BooleanVar(value=False)
         self.numba_fastmath_var = tk.BooleanVar(value=False)
         self.cstab_var = tk.StringVar(value='0.01')
+        self.erosion_rate_var = tk.StringVar(value='1e-8')
         self.sinuo_window_var = tk.StringVar(value='100')
         self.sinuo_rel_tol_var = tk.StringVar(value='0.005')
         self.sinuo_equiv_transient_step_var = tk.StringVar(value='40000')
@@ -561,6 +567,13 @@ class LdslGui(tk.Tk):
         self._entry_row(advanced, 13, 'Equiv. min points', self.sinuo_equiv_min_points_var, HELP['sinuo_equiv_min_points'])
         self._entry_row(advanced, 14, 'Equiv. HAC lags', self.sinuo_equiv_hac_lags_var, HELP['sinuo_equiv_hac_lags'])
         self._entry_row(advanced, 15, 'Stability check interval', self.sinuo_stability_interval_var, HELP['sinuo_stability_interval'])
+        self._entry_row(
+            advanced,
+            16,
+            'Bank erodibility / erosion rate',
+            self.erosion_rate_var,
+            HELP['erosion_rate'],
+        )
 
         stop_frame = ttk.LabelFrame(self.run_tab, text='Stop criteria', padding=10)
         stop_frame.pack(fill='x', pady=(8, 8))
@@ -832,6 +845,7 @@ class LdslGui(tk.Tk):
             numba_parallel=bool(self.numba_parallel_var.get()),
             numba_fastmath=bool(self.numba_fastmath_var.get()),
             cstab=float(self.cstab_var.get()),
+            erosion_rate=float(self._safe_tk_string('erosion_rate_var', '1e-8')),
             sinuo_window=int(self.sinuo_window_var.get()),
             sinuo_rel_tol=float(self.sinuo_rel_tol_var.get()),
             sinuo_equiv_transient_step=self._optional_float_from_var(self.sinuo_equiv_transient_step_var),
@@ -1045,6 +1059,7 @@ class LdslGui(tk.Tk):
         self.numba_parallel_var.set(bool(cfg.run.numba_parallel))
         self.numba_fastmath_var.set(bool(cfg.run.numba_fastmath))
         self.cstab_var.set(str(cfg.run.cstab))
+        self.erosion_rate_var.set(str(getattr(cfg.run, 'erosion_rate', 1.0e-8)))
         self.sinuo_window_var.set(str(getattr(cfg.run, 'sinuo_window', 100)))
         self.sinuo_rel_tol_var.set(str(getattr(cfg.run, 'sinuo_rel_tol', 0.005)))
         transient = getattr(cfg.run, 'sinuo_equiv_transient_step', 40000.0)
@@ -1206,6 +1221,7 @@ class LdslGui(tk.Tk):
                 stop_on_sinuosity_stability=config.run.stop_on_sinuosity_stability,
                 stop_mode=config.run.stop_mode,
                 cstab=config.run.cstab,
+                ER=config.run.erosion_rate,
                 geometry_smoothing_enabled=config.geometry.smoothing_enabled,
                 geometry_smoothing_factor=config.geometry.smoothing_factor,
                 neck_cutoff_interval=config.geometry.neck_cutoff_interval,

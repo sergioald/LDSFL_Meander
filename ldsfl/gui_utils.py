@@ -205,6 +205,7 @@ class RunControls:
     numba_parallel: bool = False
     numba_fastmath: bool = False
     cstab: float = 0.01
+    erosion_rate: float = 1.0e-8
     sinuo_window: int = 100
     sinuo_rel_tol: float = 5.0e-3
     sinuo_equiv_transient_step: float | None = 40_000.0
@@ -439,6 +440,7 @@ def preview_case_config(config: GuiCaseConfig) -> dict:
         "resample_upper_factor": float(config.geometry.resample_upper_factor),
         "resample_lower_factor": float(config.geometry.resample_lower_factor),
         "cstab": float(config.run.cstab),
+        "erosion_rate": float(config.run.erosion_rate),
         "sinuo_window": int(config.run.sinuo_window),
         "sinuo_rel_tol": float(config.run.sinuo_rel_tol),
         "sinuo_equiv_transient_step": None if config.run.sinuo_equiv_transient_step is None else float(config.run.sinuo_equiv_transient_step),
@@ -483,6 +485,8 @@ def validate_case_config(config: GuiCaseConfig) -> list[str]:
         raise ValueError("Maximum simulated time must be >= 0")
     if config.run.cstab <= 0:
         raise ValueError("cstab must be > 0")
+    if not math.isfinite(config.run.erosion_rate) or config.run.erosion_rate <= 0.0:
+        raise ValueError("Erosion rate must be finite and > 0")
     if config.run.sinuo_window < 2:
         raise ValueError("Sinuosity stability window must be >= 2")
     if config.run.sinuo_rel_tol <= 0.0:
