@@ -821,6 +821,12 @@ class LdslGui(tk.Tk):
         text = str(var.get()).strip()
         return None if text == '' else float(text)
 
+    def _required_float_from_var(self, var: tk.StringVar, label: str) -> float:
+        text = str(var.get()).strip()
+        if not text:
+            raise ValueError(f"{label} is required")
+        return float(text)
+
     def _build_config(self) -> GuiCaseConfig:
         run = RunControls(
             case_id=int(self.case_id_var.get()),
@@ -845,7 +851,10 @@ class LdslGui(tk.Tk):
             numba_parallel=bool(self.numba_parallel_var.get()),
             numba_fastmath=bool(self.numba_fastmath_var.get()),
             cstab=float(self.cstab_var.get()),
-            erosion_rate=float(self._safe_tk_string('erosion_rate_var', '1e-8')),
+            erosion_rate=self._required_float_from_var(
+                self.erosion_rate_var,
+                'Erosion rate',
+            ),
             sinuo_window=int(self.sinuo_window_var.get()),
             sinuo_rel_tol=float(self.sinuo_rel_tol_var.get()),
             sinuo_equiv_transient_step=self._optional_float_from_var(self.sinuo_equiv_transient_step_var),
