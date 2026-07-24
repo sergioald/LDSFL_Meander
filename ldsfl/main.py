@@ -372,6 +372,10 @@ def run_case(
     out_dir = base_dir / "Output"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    ER = float(ER)
+    if not np.isfinite(ER) or ER <= 0.0:
+        raise ValueError("Erosion rate must be finite and > 0")
+
     if not (
         bool(stop_on_steps)
         or bool(stop_on_time)
@@ -870,6 +874,7 @@ def run_case(
         "flagbed": flagbed,
         "rpic_0": rpic_0,
         "Mdat": Mdat,
+        "erosion_rate": float(ER),
         "steps": steps,
         "cut_cnt": cut_cnt,
         "jt": jt,

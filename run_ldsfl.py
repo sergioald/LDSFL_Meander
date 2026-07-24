@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
+import math
 import os
+from pathlib import Path
 
 # Defaults to avoid thread oversubscription. Users can override by exporting
-# these variables before running.
+# these variables before running. The LDSFL import remains below this block so
+# NumPy/BLAS thread settings are applied before numerical modules are imported.
 for _var in (
     "OMP_NUM_THREADS",
     "MKL_NUM_THREADS",
@@ -15,10 +19,7 @@ for _var in (
 ):
     os.environ.setdefault(_var, "1")
 
-import argparse
-from pathlib import Path
-
-from ldsfl.main import run_project
+from ldsfl.main import run_project  # noqa: E402
 
 
 def parse_cases(value: str) -> list[int]:
@@ -72,6 +73,17 @@ def parse_cases(value: str) -> list[int]:
     return parsed
 
 
+def _positive_finite_erosion_rate(value: str) -> float:
+    """Parse a finite, strictly positive bank-erodibility coefficient."""
+    try:
+        erosion_rate = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("erosion rate must be a number") from exc
+    if not math.isfinite(erosion_rate) or erosion_rate <= 0.0:
+        raise argparse.ArgumentTypeError("erosion rate must be finite and > 0")
+    return erosion_rate
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Run the LDSFL-Meander reduced meander model.")
     ap.add_argument("--base-dir", type=Path, default=Path("."), help="Folder containing Input/ and Output/")
@@ -120,6 +132,16 @@ def main() -> None:
     )
     ap.add_argument("--no-plots", action="store_true")
     ap.add_argument("--cstab", type=float, default=0.01, help="Timestep stability coefficient")
+    ap.add_argument(
+        "--erosion-rate",
+        type=_positive_finite_erosion_rate,
+        default=1.0e-8,
+        help=(
+            "Bank-erodibility / migration-rate coefficient. The historical "
+            "default is 1e-8. With the adaptive timestep, it mainly controls "
+            "simulated-time scaling rather than displacement per solver step."
+        ),
+    )
     ap.add_argument("--geometry-smoothing", type=int, default=1, choices=[0, 1], help="Enable geometry smoothing/filtering")
     ap.add_argument("--geometry-smoothing-factor", type=float, default=8.0)
     ap.add_argument("--neck-cutoff-interval", type=int, default=3)
@@ -202,6 +224,7 @@ def main() -> None:
         sinuo_stability_interval=args.sinuo_stability_interval,
         return_equivalence_stability=bool(args.return_equivalence_stability),
         cstab=args.cstab,
+        ER=args.erosion_rate,
         geometry_smoothing_enabled=bool(args.geometry_smoothing),
         geometry_smoothing_factor=args.geometry_smoothing_factor,
         neck_cutoff_interval=args.neck_cutoff_interval,
