@@ -186,3 +186,24 @@ def test_gui_worker_forwards_erosion_rate_without_tk(monkeypatch, tmp_path):
     gui._run_case_worker(_config(tmp_path, erosion_rate=2.5e-8))
 
     assert captured["ER"] == pytest.approx(2.5e-8)
+
+def test_gui_required_erosion_rate_rejects_blank_without_tk():
+    gui_ldsfl = pytest.importorskip("gui_ldsfl")
+
+    class _DummyVar:
+        def __init__(self, value):
+            self.value = value
+
+        def get(self):
+            return self.value
+
+    gui = gui_ldsfl.LdslGui.__new__(gui_ldsfl.LdslGui)
+
+    with pytest.raises(ValueError, match="Erosion rate is required"):
+        gui._required_float_from_var(_DummyVar("   "), "Erosion rate")
+
+    assert gui._required_float_from_var(
+        _DummyVar("2.5e-8"),
+        "Erosion rate",
+    ) == pytest.approx(2.5e-8)
+
