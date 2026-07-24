@@ -44,12 +44,21 @@ dependencies = [
   "threadpoolctl",
 ]
 
+[project.urls]
+Homepage = "https://github.com/sergioald/LDSFL_Meander"
+Repository = "https://github.com/sergioald/LDSFL_Meander"
+Issues = "https://github.com/sergioald/LDSFL_Meander/issues"
+Documentation = "https://github.com/sergioald/LDSFL_Meander/tree/main/docs"
+DOI = "https://doi.org/10.5281/zenodo.19945291"
+
 [project.optional-dependencies]
 dev = [
   "pytest",
   "pytest-cov",
   "ruff",
   "pre-commit",
+  "build",
+  "twine",
 ]
 numba = [
   "numba",

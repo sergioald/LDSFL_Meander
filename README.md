@@ -40,7 +40,8 @@ The repository combines:
 - a **command-line runner** for batch experiments and regression-style checks;
 - a **local Tkinter + Matplotlib GUI** for interactive setup, monitoring and teaching;
 - **step-vs-sinuosity diagnostics** for identifying stable or quasi-stable planform behaviour;
-- lightweight tests, CI and citation metadata suitable for public research-software use.
+- **resonance diagnostics** reporting reduced-model state and distance to the estimated resonant aspect ratio;
+- lightweight tests, CI, packaging checks and citation metadata suitable for public research-software use.
 
 The model is intended for fast exploratory studies of reduced meander dynamics, sensitivity to model parameters, and research/portfolio demonstration of scientific Python workflows.
 
@@ -161,6 +162,22 @@ On startup, the GUI preloads the bundled example inputs from [`Input/`](Input/),
 
 ---
 
+## Bank erodibility and simulated time
+
+The existing bank-erodibility coefficient is user-configurable through the CLI
+and GUI. The historical default remains `1.0e-8`:
+
+```bash
+python -m run_ldsfl --base-dir . --cases 1 --max-steps 50 --no-plots --erosion-rate 1e-8
+```
+
+Because the timestep adapts inversely to migration speed, changing this value
+primarily changes cumulative simulated time rather than displacement per solver
+iteration. See the [timestep and erosion-rate notes](docs/timestep_notes.md) for
+the interpretation and reporting guidance.
+
+---
+
 ## Inputs and outputs
 
 ### Main input files
@@ -237,6 +254,8 @@ Recommended checks before release or publication use:
 python -m pytest
 python -m ruff check ldsfl run_ldsfl.py tests
 python -m run_ldsfl --base-dir . --cases 1 --max-steps 1 --no-plots
+python -m build
+python -m twine check dist/*
 ```
 
 For a clearer description of what is and is not validated in this public repository, see [`docs/validation_notes.md`](docs/validation_notes.md).
@@ -247,23 +266,35 @@ The repository is intended for **local reproducible reduced-model analysis**. Ge
 
 ## Documentation
 
-- [Reproducibility checklist](docs/reproducibility_checklist.md)
+Start with the [documentation index](docs/index.md) for a grouped map of the
+available guides.
 
-- [v0.6.5 release-notes draft](docs/release_notes_v0_6_5.md)
+### User guides
+
+- [Short Markdown user manual](USER_MANUAL.md)
+- [CLI usage guide](docs/cli_usage.md)
+- [Timestep, erosion-rate, and iteration notes](docs/timestep_notes.md)
+- [macOS GUI and plotting notes](docs/macos_gui_notes.md)
+- [Full user manual PDF](docs/LDSFL_Meander_user_manual.pdf)
+- [Full user manual LaTeX source](docs/LDSFL_Meander_user_manual.tex)
+
+### Scientific interpretation and validation
+
+- [Theory-to-code mapping](docs/theory_code_mapping.md)
+- [Validation strategy and known limitations](docs/validation_strategy.md)
+- [Validation notes](docs/validation_notes.md)
+- [Reproducibility checklist](docs/reproducibility_checklist.md)
 - [Run manifest template](docs/run_manifest_template.md)
 
-- [CLI usage guide](docs/cli_usage.md)
-- [macOS GUI and plotting notes](docs/macos_gui_notes.md)
-- [Timestep and iteration notes](docs/timestep_notes.md)
+### Maintenance and release preparation
+
 - [Project health checklist](docs/project_health_checklist.md)
-
-- [User manual PDF](docs/LDSFL_Meander_user_manual.pdf)
-- [User manual source](docs/LDSFL_Meander_user_manual.tex)
-- [Short Markdown guide](USER_MANUAL.md)
+- [v0.6.5 release-notes draft](docs/release_notes_v0_6_5.md)
 - [Portfolio summary](docs/portfolio_summary.md)
-- [Validation notes](docs/validation_notes.md)
 
-The main README is intentionally concise. Detailed modelling assumptions, workflow notes and portfolio context are kept in the documentation files under [`docs/`](docs/).
+The README remains the quick-start entry point. Detailed modelling assumptions,
+validation scope, maintenance guidance, and release notes are kept under
+[`docs/`](docs/).
 
 ---
 
@@ -294,4 +325,4 @@ LDSFL-Meander is named after and authored by:
 - Sergio Lopez-Dubon
 - Alessandro Sgarabotto
 - Alessandro Frascati
-- Stefano Lanzoni\n\n## Documentation\n\n- [Theory-to-code mapping](docs/theory_code_mapping.md)\n- [Validation strategy and known limitations](docs/validation_strategy.md)\n\n
+- Stefano Lanzoni

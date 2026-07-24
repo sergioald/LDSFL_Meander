@@ -40,13 +40,29 @@ The GUI exposes advanced controls for:
 - backend selection (`numpy` or `numba`)
 - boundary condition (`free` or `periodic`)
 - `cstab`
+- bank erodibility / erosion rate
 - geometry smoothing
 - resample upper/lower factors
 - neck cutoff interval
 - flexible stop criteria
 - output units (`dimensionless` or `dimensional` when dimensional inputs are available)
 
-## 6. Outputs
+## 6. Bank erodibility and resonance
+
+The advanced GUI includes **Bank erodibility / erosion rate**. The historical
+default is `1.0e-8`, and the value must be finite and greater than zero.
+
+Because the solver adapts the timestep inversely to migration speed, changing
+this coefficient primarily changes cumulative simulated time. Geometry versus
+solver iteration is normally almost unchanged. Record the selected value when
+using `max_sim_time` or comparing a simulation with a physical timescale.
+
+The run summary also reports a resonance diagnostic containing the current
+state, the estimated resonant aspect ratio, relative distance to resonance, and
+the fundamental decay rate. Treat this as a reduced-model interpretation aid,
+not as independent physical validation.
+
+## 7. Outputs
 
 LDSFL-Meander writes case outputs under `Output/<id_files>/`, including:
 
@@ -57,7 +73,7 @@ LDSFL-Meander writes case outputs under `Output/<id_files>/`, including:
 - `run_manifest.json`
 - `gui_final_overlay.png`
 
-## 7. Full manual
+## 8. Full manual
 
 See `docs/LDSFL_Meander_user_manual.pdf` for the full LaTeX manual.
 

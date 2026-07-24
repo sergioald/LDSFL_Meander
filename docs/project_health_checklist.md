@@ -23,13 +23,15 @@ git status
 python -m pytest
 ```
 
-Expected current test status:
+The exact passed and skipped counts evolve as regression coverage grows.
+Treat failures as blockers. Review every skip reason with:
 
-```text
-58 passed, 2 skipped
+```bash
+python -m pytest -rs
 ```
 
-The exact number may change as new tests are added, but failures should be investigated before merging or releasing.
+A skip is acceptable only when it is deliberate, documented, and tied to an
+optional dependency or explicitly unsupported path.
 
 ## Safe/default paths
 
@@ -65,7 +67,7 @@ Do not assume Numba is valid for every solver path simply because it is installe
 
 ### Periodic flow boundary condition
 
-The free-boundary solver is the default supported path. The periodic flow path should be treated as experimental until it has been validated for the target study.
+The periodic flow path has targeted consistency coverage against the free-flow implementation, but it still lacks an external trusted-reference validation. Treat it as experimental for scientific conclusions.
 
 Before using periodic flow in a result that will be reported, record:
 
@@ -98,6 +100,7 @@ Before opening a PR:
 git status
 python -m py_compile run_ldsfl.py ldsfl/main.py gui_ldsfl.py
 python -m pytest
+python -m ruff check <changed Python files>
 ```
 
 For code PRs, also consider targeted tests:
@@ -143,7 +146,14 @@ Before tagging or publishing a release:
    python -m run_ldsfl --base-dir . --cases 1 --max-steps 1 --no-plots
    ```
 
-4. Check metadata:
+4. Build and inspect the source/wheel distributions:
+
+   ```bash
+   python -m build
+   python -m twine check dist/*
+   ```
+
+5. Check metadata:
 
    - `pyproject.toml` version;
    - `CITATION.cff` metadata;
@@ -151,7 +161,7 @@ Before tagging or publishing a release:
    - documentation links under `docs/`;
    - release notes or changelog, if used.
 
-5. Check optional-path wording:
+6. Check optional-path wording:
 
    - NumPy is the reference backend;
    - Numba is optional and must be validated for the selected path;
@@ -159,7 +169,7 @@ Before tagging or publishing a release:
    - periodic flow is experimental unless validated for the study;
    - timestep output is solver iteration/computational time, not automatically dimensional physical time.
 
-6. Confirm no accidental generated outputs are staged:
+7. Confirm no accidental generated outputs are staged:
 
    ```bash
    git status
@@ -176,7 +186,8 @@ Before using results in a paper, report, or presentation, record:
 - backend used, for example `numpy` or `numba`;
 - boundary condition used, for example `free` or `periodic`;
 - selected case IDs and input files;
-- `max_steps`, `Nprint`, and `cstab`;
+- `max_steps`, `Nprint`, `cstab`, and `erosion_rate`;
+- resonance state and relative distance to resonance when used in interpretation;
 - whether plots were generated;
 - whether stop-on-stability or final equivalence/HAC diagnostics were enabled;
 - location of output files;

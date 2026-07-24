@@ -28,8 +28,8 @@ The relationship between model iterations and dimensional physical time depends 
 The centreline update uses an adaptive computational timestep. The migration velocity components are computed from the flow response and centreline tangent angle:
 
 ```text
-dx/dt = ERT * U * sin(theta)
-dy/dt = ERT * U * cos(theta)
+dx/dt = ER * U * sin(theta)
+dy/dt = ER * U * cos(theta)
 ```
 
 The code then estimates the maximum absolute migration component:
@@ -60,15 +60,51 @@ The adaptive rule means that faster migration responses produce smaller computat
 
 This is a numerical stability mechanism. It should not be read as a direct physical time calibration without additional scaling.
 
-## Relevant CLI option
+## Bank-erodibility coefficient
 
-The timestep stability coefficient can be set from the CLI:
+The code and public interface use `ER` for the bank-erodibility /
+migration-rate coefficient. The historical default is:
 
-```bash
-python -m run_ldsfl --base-dir . --cases 1 --cstab 0.01
+```text
+ER = 1.0e-8
 ```
 
-Smaller `cstab` values generally produce more conservative updates. Larger values may run faster but should be tested carefully because they can affect numerical stability.
+It can be changed from the CLI:
+
+```bash
+python -m run_ldsfl --base-dir . --cases 1 --erosion-rate 2e-8
+```
+
+The GUI exposes the same value as **Bank erodibility / erosion rate**. Blank,
+zero, negative, NaN, and infinite values are rejected.
+
+Because:
+
+```text
+migration component proportional to ER
+dt proportional to 1 / ER
+```
+
+the product used for one adaptive centreline update is normally approximately
+independent of `ER`. Doubling `ER` therefore approximately halves `dt` while
+leaving displacement per solver iteration nearly unchanged.
+
+This does not make `ER` irrelevant. It changes cumulative computational time,
+and it can change the final geometry of runs stopped by a simulated-time
+criterion rather than by a step count.
+
+## Relevant CLI options
+
+The timestep stability coefficient and bank-erodibility coefficient can be set independently:
+
+```bash
+python -m run_ldsfl --base-dir . --cases 1 --cstab 0.01 --erosion-rate 1e-8
+```
+
+Smaller `cstab` values generally produce more conservative geometric updates.
+Larger values may become unstable. Changing `erosion_rate` primarily rescales
+cumulative computational time because the adaptive timestep compensates for the
+migration-speed multiplier.
 
 ## Output implication
 

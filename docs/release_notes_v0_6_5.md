@@ -68,6 +68,26 @@ The NumPy free-boundary path remains the reference route for routine use. Option
 - Timestep and iteration notes.
 - Project health checklist.
 
+## Final maintenance additions
+
+The final maintenance sequence also added:
+
+- arclength-based curvature normalisation;
+- safer GUI stop/continuation wiring and long-run guardrails;
+- vectorised HAC covariance evaluation and a unit-root-safe default stability estimator;
+- an analytic transfer-function regression test;
+- periodic-versus-free consistency coverage;
+- a compact reproducibility fixture;
+- resonance-state and resonant-aspect-ratio diagnostics;
+- shared modal root and coefficient machinery for free and periodic solvers;
+- a validated CLI and GUI bank-erodibility / erosion-rate control;
+- explicit rejection of blank GUI erosion-rate values;
+- source-distribution, citation-metadata, documentation-index, and package-build checks.
+
+These additions strengthen traceability and usability without changing the
+documented reference path: NumPy, free/open boundary conditions, and transparent
+CSV inputs remain the recommended baseline.
+
 ## Current recommended validation command
 
 Before a release, run:
@@ -76,6 +96,8 @@ Before a release, run:
 git status
 python -m py_compile run_ldsfl.py ldsfl/main.py gui_ldsfl.py
 python -m pytest
+python -m build
+python -m twine check dist/*
 ```
 
 For output and input smoke checks, run:
@@ -113,7 +135,7 @@ python -m pytest tests/test_sinuosity*.py tests/test_cli_sinuosity_stability.py 
 |---|---|
 | Numba backend | Optional acceleration path. Compare against NumPy for the selected case before relying on it. |
 | Numba SL=1 path | Known mismatch is documented as expected failure until investigated. |
-| Periodic flow boundary condition | Treat as experimental until targeted validation is added. |
+| Periodic flow boundary condition | Targeted free-versus-periodic consistency coverage exists, but external reference validation is still required for scientific use. |
 | Dimensional output scaling | Available, but users must document chosen length and velocity scales. |
 | Equivalence/HAC stability diagnostic | Available but more expensive; opt-in for final diagnostics or stopping studies. |
 
@@ -122,7 +144,7 @@ python -m pytest tests/test_sinuosity*.py tests/test_cli_sinuosity_stability.py 
 ### CLI first-run command
 
 ```bash
-python -m run_ldsfl --base-dir . --cases 1 --max-steps 1 --no-plots
+python -m run_ldsfl --base-dir . --cases 1 --max-steps 1 --no-plots --erosion-rate 1e-8
 ```
 
 ### Where outputs are written
