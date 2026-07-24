@@ -1,0 +1,13 @@
+include LICENSE
+include CITATION.cff
+include USER_MANUAL.md
+include BUILD_EXE.md
+include requirements.txt
+include gui_ldsfl.py
+include smoke_test.py
+include gui_smoke_test.py
+recursive-include Input *.csv
+recursive-include docs *.md *.tex *.pdf
+recursive-include examples *.md *.json *.csv
+prune Output
+global-exclude __pycache__ *.py[cod] .DS_Store Thumbs.db

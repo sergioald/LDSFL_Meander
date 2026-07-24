@@ -4,13 +4,24 @@ message: "If you use this software, please cite it using the metadata in this fi
 type: software
 authors:
   - family-names: "Lopez-Dubon"
+    given-names: "Sergio"
   - family-names: "Sgarabotto"
+    given-names: "Alessandro"
   - family-names: "Frascati"
+    given-names: "Alessandro"
   - family-names: "Lanzoni"
+    given-names: "Stefano"
 version: 0.6.5
+repository-code: "https://github.com/sergioald/LDSFL_Meander"
+url: "https://github.com/sergioald/LDSFL_Meander"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.19945291"
+    description: "Zenodo concept DOI for all versions of LDSFL-Meander"
 abstract: >-
   LDSFL-Meander is a reduced meander-morphodynamics model with a Python solver,
-  command-line entry points, and a desktop GUI for dimensionless or dimensional
-  parameter setup, geometry scaling/filtering by B_0, flexible stop criteria, output-unit selection, and
-  plot-based run monitoring, step-vs-sinuosity stability diagnostics, scrollable GUI tabs, and graceful stop/continue controls.
+  command-line entry point, and desktop GUI. It supports dimensional or
+  dimensionless setup, geometry scaling and filtering, configurable bank
+  erodibility, flexible stop criteria, resonance diagnostics, sinuosity
+  stability diagnostics, and reproducible CSV-based outputs.
 license: "MIT"

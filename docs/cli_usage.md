@@ -60,8 +60,35 @@ The case IDs must exist in the `Id` column of `Input/Parameter.csv`.
 | `--backend numba` | Use the optional Numba backend if installed and validated for the selected path. |
 | `--flow-bc free` | Use the default free-boundary flow solver. |
 | `--flow-bc periodic` | Use the periodic solver path. Treat as experimental unless validated for the target study. |
+| `--cstab 0.01` | Set the adaptive-timestep stability coefficient. |
+| `--erosion-rate 1e-8` | Set the finite, positive bank-erodibility / migration-rate coefficient. |
 | `--stop-on-sinuosity-stability 1` | Stop early when the equivalence-style sinuosity stability criterion is satisfied. |
 | `--return-equivalence-stability 1` | Compute and return the final equivalence/HAC stability diagnostic without using it as a stopping criterion. |
+
+## Bank erodibility and simulated-time scaling
+
+The bank-erodibility / migration-rate coefficient is exposed through:
+
+```bash
+python -m run_ldsfl --base-dir . --cases 1 --erosion-rate 1e-8
+```
+
+The historical default is `1.0e-8`. The value must be finite and strictly
+positive.
+
+The coefficient multiplies the migration-velocity response. However, the
+adaptive timestep is inversely proportional to the maximum migration component.
+Consequently, changing `--erosion-rate` normally changes cumulative simulated
+time much more than it changes geometry versus solver iteration.
+
+This distinction matters when:
+
+- comparing runs stopped at the same `max_steps`;
+- interpreting `dt_cum`;
+- using `--max-sim-time`;
+- calibrating results against a physical timescale.
+
+The selected value is returned in the run summary as `erosion_rate`.
 
 ## Backend guidance
 
