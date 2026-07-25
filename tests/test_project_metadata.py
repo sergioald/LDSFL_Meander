@@ -100,8 +100,8 @@ def test_source_distribution_manifest_keeps_key_research_software_files():
         "include CITATION.cff",
         "include USER_MANUAL.md",
         "recursive-include Input *.csv",
-        "recursive-include docs *.md *.tex *.pdf",
-        "recursive-include examples *.md *.json *.csv",
+        "recursive-include docs *.md *.tex *.pdf *.png *.jpg *.jpeg *.svg",
+        "recursive-include examples *.md *.json *.csv *.yml *.yaml *.py *.txt",
         "prune Output",
     }
     assert required.issubset(set(manifest.splitlines()))
