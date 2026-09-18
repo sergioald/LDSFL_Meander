@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import warnings
 from pathlib import Path
@@ -18,7 +20,7 @@ from .flowfield import parall_u_free
 from .flowfield_periodic import parall_u_periodic
 from .geometry import geometry4
 from .inputs import dimensionless_input_table, read_parameter_table, read_xy
-from .outputs import ensure_dirs, plot_it, save_sinuosity_history, save_variables, save_xystcu
+from .outputs import plot_it, reserve_run_directory, save_sinuosity_history, save_variables, save_xystcu
 from .profile import preprof_3
 from .resistance import resistance_function_flagbed
 from .resonance import resonance_report
@@ -231,8 +233,16 @@ def _sinuosity_stability_metrics(
     * stable: relative span < rel_tol and relative trend per step < rel_tol / window;
     * quasi-stable: relative span < 2 rel_tol and relative trend per step < 2 rel_tol / window.
     """
-    steps = np.asarray(step_hist, dtype=np.float64)
-    vals = np.asarray(sinuo_hist, dtype=np.float64)
+    # Only materialize the moving window: the solver retains full history for
+    # output/equivalence testing, and copying it every step is quadratic work.
+    n_values = len(sinuo_hist)
+    w = max(2, min(int(window), n_values))
+    vals = np.asarray(sinuo_hist[-w:], dtype=np.float64)
+    steps = (
+        np.asarray(step_hist[-w:], dtype=np.float64)
+        if len(step_hist) >= n_values
+        else np.arange(max(0, n_values - w), n_values, dtype=np.float64)
+    )
     if vals.size == 0:
         return {
             "state": "not available",
@@ -365,8 +375,14 @@ def run_case(
     sinuo_stability_interval: int = 100,
     return_equivalence_stability: bool = False,
     stop_requested_callback=None,
+    run_started_callback=None,
 ):
     """Run one LDSFL-Meander case using the prepared Input/ files."""
+    # Capture the supplied options before local solver state is introduced.
+    run_options = {
+        key: value for key, value in locals().items() if not key.endswith('_callback')
+    }
+    run_options['base_dir'] = str(base_dir)
     base_dir = Path(base_dir)
     in_dir = base_dir / "Input"
     out_dir = base_dir / "Output"
@@ -376,18 +392,25 @@ def run_case(
     if not np.isfinite(ER) or ER <= 0.0:
         raise ValueError("Erosion rate must be finite and > 0")
 
+    if stop_mode not in ('first', 'all'):
+        raise ValueError("stop_mode must be 'first' or 'all'")
+    for name, limit in (('max_steps', max_steps), ('max_sim_time', max_sim_time), ('Max_Cut', Max_Cut)):
+        if limit is not None and (not np.isfinite(limit) or limit < 0):
+            raise ValueError(f'{name} must be finite and >= 0, or None')
+    stop_on_steps = bool(stop_on_steps and max_steps is not None and max_steps > 0)
+    stop_on_time = bool(stop_on_time and max_sim_time is not None and max_sim_time > 0)
+    stop_on_cutoffs = bool(stop_on_cutoffs and Max_Cut is not None and Max_Cut > 0)
     if not (
         bool(stop_on_steps)
         or bool(stop_on_time)
         or bool(stop_on_cutoffs)
         or bool(stop_on_sinuosity_stability)
     ):
-        raise ValueError("At least one stop criterion must be enabled.")
+        raise ValueError("At least one stop criterion must be enabled with a positive limit, or enable stability stopping.")
 
     df = read_parameter_table(in_dir / "Parameter.csv")
     beta, ds, theta0, flagbed, rpic_0, Mdat = dimensionless_input_table(df, case_i)
     id_files = make_id_files(case_i, beta, ds, theta0, flagbed, rpic_0)
-    ensure_dirs(out_dir, id_files)
 
     xap, yap = read_xy(in_dir / "xy.csv")
     s, x, y, th, Ns, deltas, wave_l, valle_l, sinuo = preprof_3(xap, yap, dsliminicial)
@@ -395,6 +418,19 @@ def run_case(
     U = np.zeros_like(x, dtype=np.float64)
 
     rpic, Cf0, CT, CD, phiT, phiD, F0 = resistance_function_flagbed(flagbed, theta0, ds, rpic_0)
+
+    id_files = reserve_run_directory(out_dir, id_files)
+    run_config = {
+        'options': run_options,
+        'parameters': dict(beta=beta, ds=ds, theta0=theta0, flagbed=flagbed, rpic_0=rpic_0, Mdat=Mdat),
+        'input_sha256': {
+            name: hashlib.sha256((in_dir / name).read_bytes()).hexdigest()
+            for name in ('Parameter.csv', 'xy.csv')
+        },
+    }
+    (out_dir / id_files / 'run_config.json').write_text(json.dumps(run_config, indent=2), encoding='utf-8')
+    if run_started_callback is not None:
+        run_started_callback(id_files)
 
     var_name = [
         "jt",
@@ -909,10 +945,11 @@ def run_project(
     base_dir = Path(base_dir)
 
     df = read_parameter_table(base_dir / "Input" / "Parameter.csv")
-    ncases = len(df)
-
     if cases is None:
-        cases = list(range(1, ncases + 1))
+        cases = df['Id'].tolist()
+    # Reject a bad selection before producing any partial batch output.
+    for case_i in cases:
+        dimensionless_input_table(df, case_i)
 
     flow_bc = str(flow_bc).lower()
     flow_paral = int(flow_paral)

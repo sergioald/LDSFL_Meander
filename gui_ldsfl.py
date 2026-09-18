@@ -22,7 +22,6 @@ from ldsfl.gui_utils import (
     GuiCaseConfig,
     RunControls,
     build_scaled_xy_table,
-    compute_id_files,
     config_from_dict,
     config_to_dict,
     output_scales,
@@ -1159,7 +1158,7 @@ class LdslGui(tk.Tk):
             y = df['y'].astype(float).to_numpy()
 
             # If saved outputs were dimensional, convert back to solver units.
-            scale = 1.0
+            scale = output_scales(base_config)['output_length_scale']
             if self.latest_result is not None and str(self.latest_result.get('output_units', 'dimensionless')).lower() == 'dimensional':
                 scale = float(self.latest_result.get('output_length_scale', 1.0) or 1.0)
             if scale != 1.0:
@@ -1196,14 +1195,16 @@ class LdslGui(tk.Tk):
         self.run_in_progress = True
         self._set_run_button_state(running=True)
         self.status_var.set('Continuation run in progress…' if continuation else 'Run in progress…')
-        self.current_id_files = compute_id_files(config)
-        self.current_xyu_dir = Path(config.workspace_dir) / 'Output' / self.current_id_files / 'xyu'
+        # The solver reserves a new folder even for identical configurations.
+        # Wait for its callback instead of monitoring a previous run's folder.
+        self.current_id_files = None
+        self.current_xyu_dir = None
         self.last_snapshot_path = None
         self.last_sinuosity_history_mtime = None
         self.latest_result = None
         self.latest_config = config
         self.final_xy = None
-        self._refresh_initial_plot()
+        self._refresh_initial_plot(config)
         self.notebook.select(self.plot_tab)
         self.run_thread = threading.Thread(target=self._run_case_worker, args=(config, continuation), daemon=True)
         self.run_thread.start()
@@ -1216,6 +1217,10 @@ class LdslGui(tk.Tk):
             self._log('Starting LDSFL-Meander continuation run...' if continuation else 'Starting LDSFL-Meander run...')
             self._log(json.dumps(summary, indent=2))
             scales = output_scales(config)
+            def on_run_started(run_id):
+                self.current_id_files = run_id
+                self.current_xyu_dir = Path(config.workspace_dir) / 'Output' / run_id / 'xyu'
+
             results = run_project(
                 Path(config.workspace_dir),
                 cases=[config.run.case_id],
@@ -1256,6 +1261,7 @@ class LdslGui(tk.Tk):
                 sinuo_equiv_method=config.run.sinuo_equiv_method,
                 sinuo_stability_interval=config.run.sinuo_stability_interval,
                 stop_requested_callback=self.stop_requested_event.is_set,
+                run_started_callback=on_run_started,
             )
             result = results[0]
             if config.run.save_run_manifest:
@@ -1356,14 +1362,18 @@ class LdslGui(tk.Tk):
             self.monitor_job = None
         self._show_error_message(message, tb)
 
-    def _refresh_initial_plot(self):
+    def _refresh_initial_plot(self, config: GuiCaseConfig | None = None):
         try:
-            if not self.xy_var.get().strip():
+            if config is None and not self.xy_var.get().strip():
                 self.initial_xy = None
             else:
-                cfg = self._build_config()
+                cfg = config if config is not None else self._build_config()
                 table, _scale = build_scaled_xy_table(cfg)
-                self.initial_xy = (table.iloc[:, 0].to_numpy(), table.iloc[:, 1].to_numpy())
+                length_scale = output_scales(cfg)['output_length_scale']
+                self.initial_xy = (
+                    table.iloc[:, 0].to_numpy() * length_scale,
+                    table.iloc[:, 1].to_numpy() * length_scale,
+                )
         except Exception:
             self.initial_xy = self._load_xy_path(Path(self.xy_var.get())) if self.xy_var.get().strip() else None
         self._update_plot(snapshot_path=None, final=False)

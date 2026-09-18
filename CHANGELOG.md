@@ -6,8 +6,18 @@ This project follows a lightweight changelog style inspired by [Keep a Changelog
 
 ## [Unreleased]
 
+### Fixed
+
+- Included freshwater density when converting bed shear stress in pascals to Shields stress.
+- Preserved previous simulations by reserving a separate output directory for every run, including continuation segments and colliding historical labels.
+- Preserved dimensional output scaling during GUI continuation and aligned initial overlays with output units.
+- Selected all cases by their actual CSV IDs; rejected missing, duplicate and invalid IDs before batch execution.
+- Excluded disabled limits from combined stopping criteria and rejected runs with no effective stopping criterion.
+- Limited moving-window diagnostic array conversion to the requested window, avoiding quadratic copying over long runs.
+
 ### Added
 
+- Per-run solver configuration and input hashes in `run_config.json` for CLI and GUI runs.
 - Contribution guide for development setup, testing, coverage, optional Numba, branch naming, and PR checklist.
 - Project changelog to make future releases easier to review.
 

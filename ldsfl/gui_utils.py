@@ -23,6 +23,7 @@ StopMode = Literal["first", "all"]
 OutputUnits = Literal["dimensionless", "dimensional"]
 
 GRAVITY = 9.81
+WATER_DENSITY = 1000.0  # kg/m^3; freshwater reference for stress supplied in Pa
 SUBMERGED_SPECIFIC_GRAVITY = 1.65
 
 
@@ -98,7 +99,7 @@ class DimensionalInputs:
             theta0 = self._require_positive("Shields stress", self.theta0)
         elif self.mobility_mode == "direct_shear_stress":
             tau_b = self._require_positive("bed shear stress", self.tau_b)
-            theta0 = tau_b / (SUBMERGED_SPECIFIC_GRAVITY * GRAVITY * d50)
+            theta0 = tau_b / (WATER_DENSITY * SUBMERGED_SPECIFIC_GRAVITY * GRAVITY * d50)
         elif self.mobility_mode == "depth_slope_grain":
             slope = self._require_positive("slope", self.slope)
             theta0 = dref * slope / (SUBMERGED_SPECIFIC_GRAVITY * d50)
@@ -403,7 +404,9 @@ def output_scales(config: GuiCaseConfig) -> dict:
     length_scale = 1.0
     velocity_scale = 1.0
     if units == "dimensional" and config.dimensional is not None:
-        length_scale = float(config.geometry.resolved_scale(config))
+        # Solver coordinates are normalized by B0 even when the input CSV is
+        # already dimensionless (including geometry loaded for continuation).
+        length_scale = float(config.dimensional.half_width)
         try:
             velocity = float(config.dimensional.resolved_velocity())
             if math.isfinite(velocity) and velocity > 0.0:
@@ -506,18 +509,18 @@ def validate_case_config(config: GuiCaseConfig) -> list[str]:
     if config.run.sinuo_stability_interval < 1:
         raise ValueError("Sinuosity stability check interval must be >= 1")
     if not (
-        config.run.stop_on_steps
-        or config.run.stop_on_time
-        or config.run.stop_on_cutoffs
+        (config.run.stop_on_steps and config.run.max_steps > 0)
+        or (config.run.stop_on_time and config.run.max_sim_time > 0)
+        or (config.run.stop_on_cutoffs and config.run.max_cut > 0)
         or config.run.stop_on_sinuosity_stability
     ):
-        raise ValueError("At least one stop criterion must be enabled.")
+        raise ValueError("At least one stop criterion must be enabled with a positive limit, or enable stability stopping.")
     if config.run.stop_on_steps and config.run.max_steps == 0:
-        warnings.append("Step stopping is enabled but max_steps = 0, so the step criterion will never trigger.")
+        warnings.append("max_steps = 0 disables the step criterion; it is ignored when combining stop criteria.")
     if config.run.stop_on_time and config.run.max_sim_time == 0:
-        warnings.append("Time stopping is enabled but max_sim_time = 0, so the time criterion will never trigger.")
+        warnings.append("max_sim_time = 0 disables the time criterion; it is ignored when combining stop criteria.")
     if config.run.stop_on_cutoffs and config.run.max_cut == 0:
-        warnings.append("Cutoff stopping is enabled but max_cut = 0, so the cutoff criterion will never trigger.")
+        warnings.append("max_cut = 0 disables the cutoff criterion; it is ignored when combining stop criteria.")
     if str(config.run.output_units).lower() == "dimensional" and config.mode != "dimensional":
         warnings.append("Dimensional outputs were requested, but only dimensional input mode provides enough information to dimensionalize all outputs. The run will fall back to dimensionless outputs.")
     if dimless.beta < 4 or dimless.beta > 80:
