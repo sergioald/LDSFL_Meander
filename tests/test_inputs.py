@@ -49,7 +49,7 @@ def test_dimensionless_input_table_selects_row_by_case_id():
     assert dimensionless_input_table(df, 20) == (12.0, 0.01, 0.4, 1, 0.7, 8)
 
 
-def test_dimensionless_input_table_falls_back_to_one_based_row_index_when_id_is_missing():
+def test_dimensionless_input_table_rejects_missing_id_instead_of_selecting_a_row():
     df = pd.DataFrame(
         {
             "Id": [10, 20],
@@ -62,4 +62,5 @@ def test_dimensionless_input_table_falls_back_to_one_based_row_index_when_id_is_
         }
     )
 
-    assert dimensionless_input_table(df, 2) == (12.0, 0.01, 0.4, 1, 0.7, 8)
+    with pytest.raises(ValueError, match='case ID 2'):
+        dimensionless_input_table(df, 2)

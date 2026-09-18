@@ -87,7 +87,7 @@ def _positive_finite_erosion_rate(value: str) -> float:
 def main() -> None:
     ap = argparse.ArgumentParser(description="Run the LDSFL-Meander reduced meander model.")
     ap.add_argument("--base-dir", type=Path, default=Path("."), help="Folder containing Input/ and Output/")
-    ap.add_argument("--cases", type=parse_cases, default=None, help="Cases to run, e.g. '1,3-5'. Omit to run all cases.")
+    ap.add_argument("--cases", type=parse_cases, default=None, help="CSV case IDs to run, e.g. '1,3-5'. Omit to run all IDs in table order.")
     ap.add_argument("--nprint", type=int, default=10000)
     ap.add_argument("--ntstep", type=int, default=100000)
     ap.add_argument("--max-cut", type=int, default=100)

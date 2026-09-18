@@ -60,7 +60,12 @@ def test_output_tree_matches_the_recorded_tree(example_run):
     produced = sorted(
         str(p.relative_to(produced_root)).replace("\\", "/") + ("/" if p.is_dir() else "")
         for p in produced_root.rglob("*")
+        # Historical fixture predates per-run configuration provenance.
+        if p.name != 'run_config.json'
     )
+    config = json.loads((produced_root / CASE_ID / 'run_config.json').read_text(encoding='utf-8'))
+    assert config['options']['max_steps'] == 5
+    assert config['parameters']['Mdat'] > 0
     recorded = [
         line.strip().replace("expected_output/", "")
         for line in (FIXTURE / "expected_tree.txt").read_text(encoding="utf-8").splitlines()

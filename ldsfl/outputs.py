@@ -9,6 +9,21 @@ from matplotlib.figure import Figure
 from .mathutils import jt_p_string
 
 
+def reserve_run_directory(base_out: Path, base_id: str) -> str:
+    """Atomically allocate an unused run folder, preserving all previous runs."""
+    base_out.mkdir(parents=True, exist_ok=True)
+    sequence = 1
+    while True:
+        run_id = base_id if sequence == 1 else f"{base_id}_run{sequence}"
+        try:
+            (base_out / run_id).mkdir()
+        except FileExistsError:
+            sequence += 1
+            continue
+        ensure_dirs(base_out, run_id)
+        return run_id
+
+
 def ensure_dirs(base_out: Path, id_files: str):
     root = base_out / id_files
     root.mkdir(parents=True, exist_ok=True)

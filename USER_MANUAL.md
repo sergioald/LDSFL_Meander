@@ -10,6 +10,10 @@ LDSFL-Meander is a reduced model for meander evolution. The solver works interna
 
 Use `run_ldsfl.py` when you already have `Input/Parameter.csv` and `Input/xy.csv` prepared.
 
+`--cases` selects values from the CSV's `Id` column, not row numbers. IDs must
+be unique positive integers. Omitting `--cases` runs every ID in table order;
+an unknown ID is rejected before the batch starts.
+
 Use `gui_ldsfl.py` when you want help building input files, checking conversions, scaling and filtering geometry, selecting stop criteria, and viewing the final planform.
 
 ## 3. Core notation
@@ -22,6 +26,10 @@ In this project:
 - `Beta = B_0 / D_0`
 - `ds = d50 / D_0`
 - `Thetha` = reference Shields stress `theta_0` (historical CSV spelling retained in the code)
+
+Direct bed shear stress is supplied in pascals. Its conversion uses freshwater
+density `rho_w = 1000 kg/m^3` and submerged specific gravity `1.65`:
+`theta_0 = tau_b / (rho_w * 1.65 * g * d50)`.
 
 ## 4. Geometry preprocessing
 
@@ -47,6 +55,11 @@ The GUI exposes advanced controls for:
 - flexible stop criteria
 - output units (`dimensionless` or `dimensional` when dimensional inputs are available)
 
+A zero or absent stopping limit disables that criterion, including in `all`
+mode. At least one criterion must have a positive limit, or sinuosity stability
+stopping must be enabled. Negative and non-finite stopping limits are rejected
+by the solver.
+
 ## 6. Bank erodibility and resonance
 
 The advanced GUI includes **Bank erodibility / erosion rate**. The historical
@@ -70,8 +83,20 @@ LDSFL-Meander writes case outputs under `Output/<id_files>/`, including:
 - `xy_cut/`
 - `plot/`
 - `files/` (saved run variables)
+- `run_config.json` (solver options, initial parameters, and input SHA-256 hashes)
 - `run_manifest.json`
 - `gui_final_overlay.png`
+
+Every run reserves an unused output folder. The first uses the historical
+parameter-based name; later runs with that name use `_run2`, `_run3`, etc.
+Existing outputs are preserved, including when different parameters produce
+the same historical label. Use the returned `id_files` to locate a run rather
+than reconstructing its name. `run_config.json` is always written; the GUI's
+manifest and overlay remain optional.
+
+Dimensional length outputs use the physical half-width `B_0` independently of
+how the input geometry was prepared. Already dimensionless coordinates and
+continuation geometry therefore still produce metres when requested.
 
 ## 8. Full manual
 
@@ -86,4 +111,8 @@ Use **Stop after current step** to request a graceful user stop. The solver will
 Use **Continue from latest output** after a completed or manually stopped run to launch another segment from the latest saved geometry. This is useful when a run stops because `max_steps`, `max_cutoffs`, or another stop criterion was reached before the sinuosity became stable or quasi-stable.
 
 The continuation button writes `Input/xy_continue_from_latest.csv` from the latest `xyu` snapshot and uses it as the next initial centerline. If outputs were saved in dimensional units, the GUI converts the coordinates back to solver units before continuing.
+
+Each continuation segment gets a separate output folder and retains the
+physical output scale. It starts a new segment with step/time counters reset;
+it is a geometry restart, not a full solver-state checkpoint.
 
