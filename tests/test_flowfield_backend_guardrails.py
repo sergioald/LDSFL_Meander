@@ -11,8 +11,7 @@ from ldsfl.flowfield import parall_u_free
 from ldsfl.resistance import resistance_function_flagbed
 
 
-def _kwargs(n_points: int = 51):
-    beta = 9.0
+def _kwargs(n_points: int = 51, *, beta: float = 9.0):
     theta0 = 0.3
     ds = 0.005
     rpic, cf0, ct, cd, phit, phid, f0 = resistance_function_flagbed(2, theta0, ds, 0.5)
@@ -36,8 +35,8 @@ def _kwargs(n_points: int = 51):
     }
 
 
-def _call(c, *, backend="numpy", sl=0):
-    kwargs = _kwargs(len(c))
+def _call(c, *, backend="numpy", sl=0, beta: float = 9.0):
+    kwargs = _kwargs(len(c), beta=beta)
     return parall_u_free(
         np.asarray(c, dtype=np.float64),
         kwargs["s"], kwargs["Cf0"], kwargs["CT"], kwargs["CD"], kwargs["phiT"], kwargs["phiD"],
@@ -63,11 +62,11 @@ def test_numba_backend_matches_numpy_for_default_sl0_path():
 
 
 @pytest.mark.skipif(importlib.util.find_spec("numba") is None, reason="numba optional extra is not installed")
-@pytest.mark.xfail(reason="Known review finding: SL=1 numba path can disagree with numpy; keep documented until investigated.")
-def test_numba_sl1_matches_numpy_documented_known_issue():
-    s = _kwargs()["s"]
+@pytest.mark.parametrize("beta, expected_flag", [(6.0, 1), (12.0, -1)])
+def test_numba_sl1_matches_numpy_for_sub_and_super_resonant_cases(beta, expected_flag):
+    s = _kwargs(beta=beta)["s"]
     c = 1.0e-3 * np.sin(2.0 * np.pi * s / s[-1])
-    u_numpy, flag_numpy = _call(c, backend="numpy", sl=1)
-    u_numba, flag_numba = _call(c, backend="numba", sl=1)
-    assert flag_numpy == flag_numba
+    u_numpy, flag_numpy = _call(c, backend="numpy", sl=1, beta=beta)
+    u_numba, flag_numba = _call(c, backend="numba", sl=1, beta=beta)
+    assert flag_numpy == flag_numba == expected_flag
     assert np.allclose(u_numba, u_numpy, rtol=1.0e-9, atol=1.0e-11)

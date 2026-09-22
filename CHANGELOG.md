@@ -8,6 +8,12 @@ This project follows a lightweight changelog style inspired by [Keep a Changelog
 
 ### Fixed
 
+- Corrected the optional Numba `SL=1` sub-resonant routing so its lambda-2 and lambda-3 terms use the same downstream `SEMIANA2` kernels as the NumPy reference; dedicated CI now exercises Numba parity.
+- Centralized scientific parameter and core run-control validation, including exact integer checks for `Id`, `flagbed`, `Mdat`, save intervals, worker counts, and other discrete controls.
+- Rejected dimensional output unless finite positive physical length and velocity scales are available; the CLI now requires both scales explicitly.
+- Made `--no-plots` suppress every PNG, while sinuosity CSV rows are appended incrementally and exactly once.
+- Added `state_step` to variable histories and included the final post-step state, aligning variable and sinuosity histories from step 0 through the final completed step.
+- Made missing final numerical outputs fatal and recorded finalization state and errors in `run_status.json`.
 - Included freshwater density when converting bed shear stress in pascals to Shields stress.
 - Preserved previous simulations by reserving a separate output directory for every run, including continuation segments and colliding historical labels.
 - Preserved dimensional output scaling during GUI continuation and aligned initial overlays with output units.
@@ -23,6 +29,7 @@ This project follows a lightweight changelog style inspired by [Keep a Changelog
 
 ### Changed
 
+- Variable histories now contain `N + 1` state rows for an `N`-iteration run; `jt` remains as the legacy counter and `state_step` is the completed-iteration count.
 - Documentation and release hygiene are now tracked explicitly through contributor and changelog files.
 
 ## [0.6.5] - documented release

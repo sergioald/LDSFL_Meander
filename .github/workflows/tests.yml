@@ -9,6 +9,23 @@ permissions:
   contents: read
 
 jobs:
+  numba-equivalence:
+    name: Numba backend equivalence / Python 3.12
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install development and Numba dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,numba]"
+      - name: Run backend guardrails
+        run: python -m pytest tests/test_flowfield_backend_guardrails.py -q
+
   smoke-tests:
     name: Tests / Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest

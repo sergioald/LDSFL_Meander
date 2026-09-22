@@ -66,6 +66,9 @@ def test_output_tree_matches_the_recorded_tree(example_run):
     config = json.loads((produced_root / CASE_ID / 'run_config.json').read_text(encoding='utf-8'))
     assert config['options']['max_steps'] == 5
     assert config['parameters']['Mdat'] > 0
+    status = json.loads((produced_root / CASE_ID / 'run_status.json').read_text(encoding='utf-8'))
+    assert status['simulation_completed'] is True
+    assert status['output_complete'] is True
     recorded = [
         line.strip().replace("expected_output/", "")
         for line in (FIXTURE / "expected_tree.txt").read_text(encoding="utf-8").splitlines()

@@ -87,3 +87,4 @@ def test_cli_smoke_writes_expected_output_files(monkeypatch, tmp_path):
     sinuosity_rows = _csv_rows(sinuosity_files[0])
     assert sinuosity_rows[0] == ["step", "sinuo"]
     assert len(sinuosity_rows) >= 2
+    assert list(case_dir.rglob("*.png")) == []

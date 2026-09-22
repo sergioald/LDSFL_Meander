@@ -6,17 +6,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .validation import validate_parameter_table
+
 
 def read_parameter_table(param_csv: Path) -> pd.DataFrame:
     # MATLAB readtable with "preserve" keeps original names; pandas preserves headers as-is.
-    df = pd.read_csv(param_csv)
-    ids = pd.to_numeric(df['Id'], errors='raise')
-    if df.empty or not np.isfinite(ids).all() or (ids <= 0).any() or (ids % 1 != 0).any():
-        raise ValueError('Case IDs must be positive integers and the parameter table must not be empty.')
-    if not ids.is_unique:
-        raise ValueError('Case IDs must be unique.')
-    df['Id'] = ids.astype('int64')
-    return df
+    return validate_parameter_table(pd.read_csv(param_csv))
 
 def read_xy(xy_csv: Path) -> tuple[np.ndarray, np.ndarray]:
     df = pd.read_csv(xy_csv, header=None, encoding='utf-8-sig')
@@ -30,6 +25,7 @@ def dimensionless_input_table(df: pd.DataFrame, i: int):
     """
     Port of Dimensionless_Input_Table.m
     """
+    df = validate_parameter_table(df)
     rows = df[df['Id'] == i]
     if len(rows) != 1:
         raise ValueError(f'Expected exactly one row for case ID {i}; found {len(rows)}.')

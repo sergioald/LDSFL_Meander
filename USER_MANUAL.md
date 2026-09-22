@@ -16,6 +16,12 @@ an unknown ID is rejected before the batch starts.
 
 Use `gui_ldsfl.py` when you want help building input files, checking conversions, scaling and filtering geometry, selecting stop criteria, and viewing the final planform.
 
+All entry points share the same scientific validation. `Parameter.csv` must
+contain `Id`, `Beta`, `ds`, `Thetha`, `flagbed`, `r`, and `Mdat`. Numeric values
+must be finite; positive quantities must be greater than zero; `Id`, `flagbed`,
+and `Mdat` must be exact integers. `flagbed` must be 1 or 2, IDs must be unique,
+and fractional values such as `Mdat=6.5` are rejected rather than truncated.
+
 ## 3. Core notation
 
 In this project:
@@ -60,6 +66,11 @@ mode. At least one criterion must have a positive limit, or sinuosity stability
 stopping must be enabled. Negative and non-finite stopping limits are rejected
 by the solver.
 
+These rules also apply to direct `run_case()` calls. Save intervals, iteration
+labels, worker counts, smoothing and resampling settings, stability settings,
+flow options, and output units are checked before a run creates its output
+directory. For example, `--nprint 0` fails immediately with a validation error.
+
 ## 6. Bank erodibility and resonance
 
 The advanced GUI includes **Bank erodibility / erosion rate**. The historical
@@ -84,6 +95,7 @@ LDSFL-Meander writes case outputs under `Output/<id_files>/`, including:
 - `plot/`
 - `files/` (saved run variables)
 - `run_config.json` (solver options, initial parameters, and input SHA-256 hashes)
+- `run_status.json` (simulation completion, output completeness, stop reason, and output errors)
 - `run_manifest.json`
 - `gui_final_overlay.png`
 
@@ -97,6 +109,38 @@ manifest and overlay remain optional.
 Dimensional length outputs use the physical half-width `B_0` independently of
 how the input geometry was prepared. Already dimensionless coordinates and
 continuation geometry therefore still produce metres when requested.
+
+Dimensional output is accepted only when both `B_0` and a finite positive
+physical reference velocity `U0` are known. GUI input modes that cannot derive
+`U0` must be supplemented with velocity/friction information or use
+dimensionless output. CLI and direct API users must explicitly provide
+`output_length_scale` and `output_velocity_scale`; no scale of 1 is silently
+treated as physical.
+
+With plotting disabled, including through `--no-plots`, no PNG is created. The
+sinuosity CSV is still required and is appended in blocks without rewriting
+the complete history. Its `step` values run from 0 through the final completed
+iteration exactly once. The optional sinuosity PNG is generated only at final
+completion when plots are enabled.
+
+The `var_*.csv` files use two counters:
+
+- `state_step` is the number of completed migration iterations represented by the row;
+- `jt` is the retained legacy/internal loop counter and equals `state_step + 1`.
+
+The initial row has `state_step=0`, `jt=1`, `dt=0`, and `dt_cum=0`. The `dt`
+field is the adaptive timestep used to reach the represented state, so a run
+that completes `N` iterations records states 0 through `N`, including the final
+post-step geometry and cumulative time.
+
+The final `xyu` snapshot, variable-history flush, and sinuosity CSV are required
+scientific outputs. If any cannot be written, the solver attempts the other
+final outputs, records the errors in `run_status.json`, and raises `RuntimeError`
+instead of returning a successful result. Plot failures remain non-fatal.
+
+The optional Numba backend now follows the NumPy reference for both
+sub-resonant and super-resonant `SL=1` flow evaluation, and CI checks this
+equivalence when installing the `numba` extra.
 
 ## 8. Full manual
 

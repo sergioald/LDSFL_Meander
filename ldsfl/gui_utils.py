@@ -9,6 +9,8 @@ from typing import Literal
 
 import pandas as pd
 
+from .validation import validate_run_controls, validate_scientific_parameters
+
 InputMode = Literal["dimensionless", "dimensional"]
 MobilityMode = Literal[
     "direct_shields",
@@ -335,30 +337,29 @@ def parse_geometry_csv(path: Path) -> tuple[pd.DataFrame, dict]:
 
 
 def validate_dimensionless(inp: DimensionlessInputs) -> None:
-    if inp.beta <= 0:
-        raise ValueError("Aspect ratio beta_0 = B_0/D_0 must be > 0")
-    if inp.ds <= 0:
-        raise ValueError("Relative grain size ds_0 = d50/D_0 must be > 0")
-    if inp.theta0 <= 0:
-        raise ValueError("Shields stress must be > 0")
-    if inp.flagbed not in (1, 2):
-        raise ValueError("Bed regime must be 1 (plane bed) or 2 (dune bed)")
-    if inp.rpic_0 <= 0:
-        raise ValueError("Transverse bed-slope coefficient r must be > 0")
-    if inp.Mdat <= 0:
-        raise ValueError("Number of Fourier modes must be > 0")
+    validate_scientific_parameters(
+        case_id=1,
+        beta=inp.beta,
+        ds=inp.ds,
+        theta0=inp.theta0,
+        flagbed=inp.flagbed,
+        rpic_0=inp.rpic_0,
+        mdat=inp.Mdat,
+    )
 
 
 def parameter_row_from_dimensionless(case_id: int, inp: DimensionlessInputs) -> dict:
-    validate_dimensionless(inp)
+    values = validate_scientific_parameters(
+        case_id=case_id,
+        beta=inp.beta,
+        ds=inp.ds,
+        theta0=inp.theta0,
+        flagbed=inp.flagbed,
+        rpic_0=inp.rpic_0,
+        mdat=inp.Mdat,
+    )
     return {
-        "Id": int(case_id),
-        "Beta": float(inp.beta),
-        "ds": float(inp.ds),
-        "Thetha": float(inp.theta0),
-        "flagbed": int(inp.flagbed),
-        "r": float(inp.rpic_0),
-        "Mdat": int(inp.Mdat),
+        **values,
         "flagbed=1 plane; flagbed=2 dunes": int(inp.flagbed),
     }
 
@@ -400,19 +401,37 @@ def resolve_output_units(config: GuiCaseConfig) -> OutputUnits:
 
 
 def output_scales(config: GuiCaseConfig) -> dict:
+    requested = str(config.run.output_units).lower()
+
+    if requested not in {"dimensionless", "dimensional"}:
+        raise ValueError(
+            "output_units must be one of: dimensional, dimensionless"
+        )
+
+    if requested == "dimensional" and (
+        config.mode != "dimensional" or config.dimensional is None
+    ):
+        raise ValueError("Dimensional output requires dimensional input mode.")
+
     units = resolve_output_units(config)
     length_scale = 1.0
     velocity_scale = 1.0
+
     if units == "dimensional" and config.dimensional is not None:
         # Solver coordinates are normalized by B0 even when the input CSV is
         # already dimensionless (including geometry loaded for continuation).
         length_scale = float(config.dimensional.half_width)
-        try:
-            velocity = float(config.dimensional.resolved_velocity())
-            if math.isfinite(velocity) and velocity > 0.0:
-                velocity_scale = velocity
-        except Exception:
-            velocity_scale = 1.0
+        velocity = float(config.dimensional.resolved_velocity())
+
+        if not math.isfinite(velocity) or velocity <= 0.0:
+            raise ValueError(
+                "Dimensional velocity output requires a reference velocity U0. "
+                "The selected input method does not provide enough information to derive U0. "
+                "Supply velocity/friction information or use dimensionless output."
+            )
+
+        velocity_scale = velocity
+
     return {
         "requested_output_units": str(config.run.output_units),
         "resolved_output_units": units,
@@ -476,38 +495,38 @@ def validate_case_config(config: GuiCaseConfig) -> list[str]:
     if not Path(config.xy_csv).exists():
         raise FileNotFoundError(f"xy.csv not found: {config.xy_csv}")
     geometry_table, geometry_info = parse_geometry_csv(Path(config.xy_csv))
-    if config.run.nprint <= 0:
-        raise ValueError("Saved snapshot interval Nprint must be > 0")
-    if config.run.ntstep <= 0:
-        raise ValueError("Ntstep must be > 0")
-    if config.run.max_cut < 0:
-        raise ValueError("Maximum cutoffs must be >= 0")
-    if config.run.max_steps < 0:
-        raise ValueError("Maximum steps must be >= 0")
-    if config.run.max_sim_time < 0:
-        raise ValueError("Maximum simulated time must be >= 0")
-    if config.run.cstab <= 0:
-        raise ValueError("cstab must be > 0")
-    if not math.isfinite(config.run.erosion_rate) or config.run.erosion_rate <= 0.0:
-        raise ValueError("Erosion rate must be finite and > 0")
-    if config.run.sinuo_window < 2:
-        raise ValueError("Sinuosity stability window must be >= 2")
-    if config.run.sinuo_rel_tol <= 0.0:
-        raise ValueError("Sinuosity relative tolerance must be > 0")
-    if config.run.sinuo_equiv_transient_step is not None and config.run.sinuo_equiv_transient_step < 0.0:
-        raise ValueError("Equivalence transient step must be >= 0, or None to use all history")
-    if config.run.sinuo_equiv_drift_tol <= 0.0:
-        raise ValueError("Equivalence drift tolerance must be > 0")
-    if not (0.0 < config.run.sinuo_equiv_confidence < 1.0):
-        raise ValueError("Equivalence confidence must be between 0 and 1")
-    if config.run.sinuo_equiv_min_points < 3:
-        raise ValueError("Equivalence minimum points must be >= 3")
-    if config.run.sinuo_equiv_hac_lags < 0:
-        raise ValueError("Equivalence HAC lags must be >= 0")
-    if str(config.run.sinuo_equiv_method).lower() not in {"increment", "hac"}:
-        raise ValueError("Equivalence method must be 'increment' or 'hac'")
-    if config.run.sinuo_stability_interval < 1:
-        raise ValueError("Sinuosity stability check interval must be >= 1")
+    scales = output_scales(config)
+    validate_run_controls(
+        Nprint=config.run.nprint,
+        Ntstep=config.run.ntstep,
+        Max_Cut=config.run.max_cut,
+        max_steps=config.run.max_steps,
+        max_sim_time=config.run.max_sim_time,
+        dsliminicial=1.0,
+        ER=config.run.erosion_rate,
+        cstab=config.run.cstab,
+        geometry_smoothing_factor=config.geometry.smoothing_factor,
+        neck_cutoff_interval=config.geometry.neck_cutoff_interval,
+        resample_upper_factor=config.geometry.resample_upper_factor,
+        resample_lower_factor=config.geometry.resample_lower_factor,
+        sinuo_window=config.run.sinuo_window,
+        sinuo_rel_tol=config.run.sinuo_rel_tol,
+        sinuo_equiv_transient_step=config.run.sinuo_equiv_transient_step,
+        sinuo_equiv_drift_tol=config.run.sinuo_equiv_drift_tol,
+        sinuo_equiv_confidence=config.run.sinuo_equiv_confidence,
+        sinuo_equiv_min_points=config.run.sinuo_equiv_min_points,
+        sinuo_equiv_hac_lags=config.run.sinuo_equiv_hac_lags,
+        sinuo_equiv_method=config.run.sinuo_equiv_method,
+        sinuo_stability_interval=config.run.sinuo_stability_interval,
+        flow_bc=config.run.flow_bc,
+        flow_paral=config.run.flow_paral,
+        flow_workers=config.run.flow_workers,
+        flow_backend=config.run.backend,
+        output_units=config.run.output_units,
+        output_length_scale=scales["output_length_scale"],
+        output_velocity_scale=scales["output_velocity_scale"],
+        stop_mode=config.run.stop_mode,
+    )
     if not (
         (config.run.stop_on_steps and config.run.max_steps > 0)
         or (config.run.stop_on_time and config.run.max_sim_time > 0)
@@ -521,8 +540,6 @@ def validate_case_config(config: GuiCaseConfig) -> list[str]:
         warnings.append("max_sim_time = 0 disables the time criterion; it is ignored when combining stop criteria.")
     if config.run.stop_on_cutoffs and config.run.max_cut == 0:
         warnings.append("max_cut = 0 disables the cutoff criterion; it is ignored when combining stop criteria.")
-    if str(config.run.output_units).lower() == "dimensional" and config.mode != "dimensional":
-        warnings.append("Dimensional outputs were requested, but only dimensional input mode provides enough information to dimensionalize all outputs. The run will fall back to dimensionless outputs.")
     if dimless.beta < 4 or dimless.beta > 80:
         warnings.append("Aspect ratio beta_0 = B_0/D_0 is outside a typical reduced-model range (roughly 4 to 80).")
     if dimless.ds < 1e-4 or dimless.ds > 0.1:
@@ -542,14 +559,6 @@ def validate_case_config(config: GuiCaseConfig) -> list[str]:
         raise ValueError("Geometry scale must be > 0")
     if config.geometry.mode != "as_is" and geometry_scale == 1.0:
         warnings.append("Geometry scaling is enabled but the effective scale factor is 1.0.")
-    if config.geometry.smoothing_factor <= 0.0:
-        raise ValueError("Geometry smoothing factor must be > 0")
-    if config.geometry.neck_cutoff_interval < 0:
-        raise ValueError("Neck cutoff interval must be >= 0")
-    if config.geometry.resample_upper_factor <= 1.0:
-        raise ValueError("Resample upper factor must be > 1.0")
-    if not (0.0 < config.geometry.resample_lower_factor < 1.0):
-        raise ValueError("Resample lower factor must be between 0 and 1")
     if len(geometry_table) < 6:
         warnings.append("Geometry has very few points; curvature estimates and smoothing may be unstable.")
     diffs = ((geometry_table.iloc[:, 0].diff() ** 2 + geometry_table.iloc[:, 1].diff() ** 2) ** 0.5).iloc[1:]
