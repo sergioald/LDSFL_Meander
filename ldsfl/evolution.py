@@ -26,6 +26,8 @@ def dxdy2(ERT: float, U: np.ndarray, x: np.ndarray, y: np.ndarray,
         raise FloatingPointError(
             f"Non-finite migration speed encountered in dxdy2: ERT={ERT!r} at jt={jt}"
         )
+    if ERT <= 0.0:
+        raise ValueError(f"ERT must be > 0 in dxdy2; got {ERT!r} at jt={jt}")
     if not np.all(np.isfinite(U)):
         raise FloatingPointError(
             f"Non-finite migration speed encountered in dxdy2: U contains non-finite values at jt={jt}"
@@ -38,6 +40,8 @@ def dxdy2(ERT: float, U: np.ndarray, x: np.ndarray, y: np.ndarray,
         raise FloatingPointError(
             f"Non-finite timestep stability coefficient encountered in dxdy2: cstab={cstab!r} at jt={jt}"
         )
+    if cstab <= 0.0:
+        raise ValueError(f"cstab must be > 0 in dxdy2; got {cstab!r} at jt={jt}")
 
     dxdtl = np.empty_like(U)
     dydtl = np.empty_like(U)

@@ -21,6 +21,23 @@ contains:
 | `step` | Solver iteration index. |
 | `sinuo` | Dimensionless sinuosity at that iteration. |
 
+Variable-history files also contain `state_step` and the legacy `jt` counter.
+`state_step` is the completed migration-iteration count and uses the same
+0-through-N convention as `sinuosity_history.step`. `jt` is retained for
+backward compatibility and equals `state_step + 1`.
+
+Each variable-history row describes a state rather than an iteration about to
+run. The initial state is:
+
+```text
+state_step = 0, jt = 1, dt = 0, dt_cum = 0
+```
+
+After the first migration update, the next row is `state_step=1`, `jt=2`.
+Here `dt` is the adaptive timestep used to reach that represented state and
+`dt_cum` includes it. A run completing N iterations writes N+1 state rows and
+the final row's `dt_cum` equals the value returned in the run result.
+
 The relationship between model iterations and dimensional physical time depends on the nondimensionalisation and physical scaling used for the study. Do not interpret `step` as seconds, days, years, or any dimensional unit unless the corresponding scaling has been defined.
 
 ## Adaptive computational timestep

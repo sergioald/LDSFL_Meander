@@ -20,11 +20,19 @@ from .flowfield import parall_u_free
 from .flowfield_periodic import parall_u_periodic
 from .geometry import geometry4
 from .inputs import dimensionless_input_table, read_parameter_table, read_xy
-from .outputs import plot_it, reserve_run_directory, save_sinuosity_history, save_variables, save_xystcu
+from .outputs import (
+    plot_it,
+    plot_sinuosity_history,
+    reserve_run_directory,
+    save_sinuosity_history,
+    save_variables,
+    save_xystcu,
+)
 from .profile import preprof_3
 from .resistance import resistance_function_flagbed
 from .resonance import resonance_report
 from .stability import sinuosity_equivalence_stability
+from .validation import validate_run_controls
 
 
 def initial_curvature(th: np.ndarray, deltas: float = 1.0) -> np.ndarray:
@@ -362,8 +370,8 @@ def run_case(
     do_plots: bool = True,
     collect_timing: bool = False,
     output_units: str = "dimensionless",
-    output_length_scale: float = 1.0,
-    output_velocity_scale: float = 1.0,
+    output_length_scale: float | None = None,
+    output_velocity_scale: float | None = None,
     sinuo_window: int = 100,
     sinuo_rel_tol: float = 5.0e-3,
     sinuo_equiv_transient_step: float | None = 40_000.0,
@@ -386,17 +394,68 @@ def run_case(
     base_dir = Path(base_dir)
     in_dir = base_dir / "Input"
     out_dir = base_dir / "Output"
+
+    controls = validate_run_controls(
+        Nprint=Nprint,
+        Ntstep=Ntstep,
+        Max_Cut=Max_Cut,
+        max_steps=max_steps,
+        max_sim_time=max_sim_time,
+        dsliminicial=dsliminicial,
+        ER=ER,
+        cstab=cstab,
+        geometry_smoothing_factor=geometry_smoothing_factor,
+        neck_cutoff_interval=neck_cutoff_interval,
+        resample_upper_factor=resample_upper_factor,
+        resample_lower_factor=resample_lower_factor,
+        sinuo_window=sinuo_window,
+        sinuo_rel_tol=sinuo_rel_tol,
+        sinuo_equiv_transient_step=sinuo_equiv_transient_step,
+        sinuo_equiv_drift_tol=sinuo_equiv_drift_tol,
+        sinuo_equiv_confidence=sinuo_equiv_confidence,
+        sinuo_equiv_min_points=sinuo_equiv_min_points,
+        sinuo_equiv_hac_lags=sinuo_equiv_hac_lags,
+        sinuo_equiv_method=sinuo_equiv_method,
+        sinuo_stability_interval=sinuo_stability_interval,
+        flow_bc=flow_bc,
+        flow_paral=flow_paral,
+        flow_workers=flow_workers,
+        flow_backend=flow_backend,
+        output_units=output_units,
+        output_length_scale=output_length_scale,
+        output_velocity_scale=output_velocity_scale,
+        stop_mode=stop_mode,
+    )
+    Nprint = controls["Nprint"]
+    Ntstep = controls["Ntstep"]
+    Max_Cut = controls["Max_Cut"]
+    max_steps = controls["max_steps"]
+    max_sim_time = controls["max_sim_time"]
+    dsliminicial = controls["dsliminicial"]
+    ER = controls["ER"]
+    cstab = controls["cstab"]
+    geometry_smoothing_factor = controls["geometry_smoothing_factor"]
+    neck_cutoff_interval = controls["neck_cutoff_interval"]
+    resample_upper_factor = controls["resample_upper_factor"]
+    resample_lower_factor = controls["resample_lower_factor"]
+    sinuo_window = controls["sinuo_window"]
+    sinuo_rel_tol = controls["sinuo_rel_tol"]
+    sinuo_equiv_transient_step = controls["sinuo_equiv_transient_step"]
+    sinuo_equiv_drift_tol = controls["sinuo_equiv_drift_tol"]
+    sinuo_equiv_confidence = controls["sinuo_equiv_confidence"]
+    sinuo_equiv_min_points = controls["sinuo_equiv_min_points"]
+    sinuo_equiv_hac_lags = controls["sinuo_equiv_hac_lags"]
+    sinuo_equiv_method = controls["sinuo_equiv_method"]
+    sinuo_stability_interval = controls["sinuo_stability_interval"]
+    flow_bc = controls["flow_bc"]
+    flow_paral = controls["flow_paral"]
+    flow_workers = controls["flow_workers"]
+    flow_backend = controls["flow_backend"]
+    output_units = controls["output_units"]
+    output_length_scale = controls["output_length_scale"]
+    output_velocity_scale = controls["output_velocity_scale"]
+    stop_mode = controls["stop_mode"]
     out_dir.mkdir(parents=True, exist_ok=True)
-
-    ER = float(ER)
-    if not np.isfinite(ER) or ER <= 0.0:
-        raise ValueError("Erosion rate must be finite and > 0")
-
-    if stop_mode not in ('first', 'all'):
-        raise ValueError("stop_mode must be 'first' or 'all'")
-    for name, limit in (('max_steps', max_steps), ('max_sim_time', max_sim_time), ('Max_Cut', Max_Cut)):
-        if limit is not None and (not np.isfinite(limit) or limit < 0):
-            raise ValueError(f'{name} must be finite and >= 0, or None')
     stop_on_steps = bool(stop_on_steps and max_steps is not None and max_steps > 0)
     stop_on_time = bool(stop_on_time and max_sim_time is not None and max_sim_time > 0)
     stop_on_cutoffs = bool(stop_on_cutoffs and Max_Cut is not None and Max_Cut > 0)
@@ -434,6 +493,7 @@ def run_case(
 
     var_name = [
         "jt",
+        "state_step",
         "dt",
         "dt_cum",
         "rpic",
@@ -452,10 +512,6 @@ def run_case(
         "ds",
         "cut_cnt",
     ]
-    save_var_n = 18
-    # One row per solver step within a save block; flushed every Nprint steps
-    # and once more at the end of the run for the final partial block.
-    T_var = np.full((max(Nprint, 1), save_var_n), np.nan, dtype=np.float64)
 
     x_origin = x.copy()
     y_origin = y.copy()
@@ -465,11 +521,36 @@ def run_case(
     dt_cum = 0.0
     dt = 0.0
     cut_cnt = 0
-    cnt_f = 1
     Nsold = 0
+
+    def state_row(state_step: int, legacy_jt: int) -> list[float]:
+        return [
+            float(legacy_jt),
+            float(state_step),
+            float(dt),
+            float(dt_cum),
+            float(rpic),
+            float(Cf0),
+            float(CT),
+            float(CD),
+            float(phiT),
+            float(phiD),
+            float(F0),
+            float(deltas),
+            float(wave_l),
+            float(valle_l),
+            float(sinuo),
+            float(beta),
+            float(theta0),
+            float(ds),
+            float(cut_cnt),
+        ]
+
+    variable_rows: list[list[float]] = [state_row(0, 1)]
 
     step_hist: list[int] = [0]
     sinuo_hist: list[float] = [float(sinuo)]
+    sinuosity_saved_count = 0
     stability_interval = max(1, int(sinuo_stability_interval))
     use_equivalence_stability = bool(stop_on_sinuosity_stability) or bool(return_equivalence_stability)
     if bool(stop_on_sinuosity_stability):
@@ -565,27 +646,6 @@ def run_case(
                 stop_reason = f"stop criteria reached: {', '.join(reached)}"
                 break
 
-            if 1 <= cnt_f <= Nprint:
-                row = T_var[cnt_f - 1]
-                row[0] = jt
-                row[1] = dt
-                row[2] = dt_cum
-                row[3] = rpic
-                row[4] = Cf0
-                row[5] = CT
-                row[6] = CD
-                row[7] = phiT
-                row[8] = phiD
-                row[9] = F0
-                row[10] = deltas
-                row[11] = wave_l
-                row[12] = valle_l
-                row[13] = sinuo
-                row[14] = beta
-                row[15] = theta0
-                row[16] = ds
-                row[17] = cut_cnt
-
             if str(flow_bc).lower().startswith("per"):
                 t0 = perf_counter() if tim is not None else None
                 U, flag = parall_u_periodic(
@@ -677,22 +737,6 @@ def run_case(
                         output_units=output_units,
                         length_scale=output_length_scale,
                     )
-                save_variables(
-                    out_dir,
-                    T_var[:cnt_f],
-                    Ntstep,
-                    jt,
-                    var_name,
-                    id_files,
-                    cut_cnt,
-                    output_units=output_units,
-                    length_scale=output_length_scale,
-                )
-                save_sinuosity_history(out_dir, id_files, step_hist, sinuo_hist)
-                T_var[:] = np.nan
-                # cnt_f is incremented at the end of every iteration, so 0 here
-                # makes the next iteration write into row 0 of the fresh block.
-                cnt_f = 0
                 if tim is not None and t0s is not None:
                     tim["saving"] += float(perf_counter() - t0s)
 
@@ -760,8 +804,33 @@ def run_case(
                 tim["update"] += float(perf_counter() - t0u)
 
             steps += 1
+            jt += 1
             step_hist.append(int(steps))
             sinuo_hist.append(float(sinuo))
+            variable_rows.append(state_row(steps, jt))
+            if len(variable_rows) >= Nprint:
+                t0s = perf_counter() if tim is not None else None
+                save_variables(
+                    out_dir,
+                    np.asarray(variable_rows, dtype=np.float64),
+                    Ntstep,
+                    jt,
+                    var_name,
+                    id_files,
+                    cut_cnt,
+                    output_units=output_units,
+                    length_scale=output_length_scale,
+                )
+                variable_rows.clear()
+                sinuosity_saved_count = save_sinuosity_history(
+                    out_dir,
+                    id_files,
+                    step_hist,
+                    sinuo_hist,
+                    start_index=sinuosity_saved_count,
+                )
+                if tim is not None and t0s is not None:
+                    tim["saving"] += float(perf_counter() - t0s)
             if bool(stop_on_sinuosity_stability) and (steps % stability_interval) == 0:
                 stability_info = _combined_sinuosity_stability_metrics(
                     step_hist,
@@ -786,11 +855,10 @@ def run_case(
                 if bool(stop_on_sinuosity_stability) and previous_equivalence is not None:
                     stability_info["equivalence"] = previous_equivalence
 
-            jt += 1
-            cnt_f += 1
 
-    # Always write a final geometry snapshot so the GUI can refresh and
-    # optionally continue from the last available centerline.
+    # Required numerical outputs are finalized independently so one failure
+    # does not prevent attempts to write the remaining artifacts.
+    output_errors: list[str] = []
     try:
         final_U = _final_snapshot_velocity(
             U,
@@ -834,7 +902,39 @@ def run_case(
             length_scale=output_length_scale,
             velocity_scale=output_velocity_scale,
         )
-        if do_plots:
+    except Exception as exc:
+        output_errors.append(f"final xyu snapshot: {exc}")
+
+    if variable_rows:
+        try:
+            save_variables(
+                out_dir,
+                np.asarray(variable_rows, dtype=np.float64),
+                Ntstep,
+                jt,
+                var_name,
+                id_files,
+                cut_cnt,
+                output_units=output_units,
+                length_scale=output_length_scale,
+            )
+            variable_rows.clear()
+        except Exception as exc:
+            output_errors.append(f"final variable history: {exc}")
+
+    try:
+        sinuosity_saved_count = save_sinuosity_history(
+            out_dir,
+            id_files,
+            step_hist,
+            sinuo_hist,
+            start_index=sinuosity_saved_count,
+        )
+    except Exception as exc:
+        output_errors.append(f"final sinuosity CSV: {exc}")
+
+    if do_plots:
+        try:
             plot_it(
                 out_dir,
                 x_origin,
@@ -848,39 +948,35 @@ def run_case(
                 output_units=output_units,
                 length_scale=output_length_scale,
             )
-    except Exception as exc:
-        warnings.warn(
-            f"Final snapshot could not be saved: {exc}",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-
-    # Flush the final partial variable-history block. cnt_f is incremented at
-    # the end of each completed iteration, so cnt_f - 1 rows have been recorded
-    # since the last Nprint flush.
-    n_pending = max(0, int(cnt_f) - 1)
-    if n_pending > 0:
+        except Exception as exc:
+            warnings.warn(f"Final planform plot could not be saved: {exc}", RuntimeWarning, stacklevel=2)
         try:
-            save_variables(
-                out_dir,
-                T_var[:n_pending],
-                Ntstep,
-                jt,
-                var_name,
-                id_files,
-                cut_cnt,
-                output_units=output_units,
-                length_scale=output_length_scale,
-            )
+            plot_sinuosity_history(out_dir, id_files, step_hist, sinuo_hist)
         except Exception as exc:
             warnings.warn(
-                f"Final variable history block could not be saved: {exc}",
+                f"Final sinuosity plot could not be saved: {exc}",
                 RuntimeWarning,
                 stacklevel=2,
             )
 
+    run_status = {
+        "simulation_completed": True,
+        "output_complete": not output_errors,
+        "stop_reason": stop_reason,
+        "steps": int(steps),
+        "dt_cum": float(dt_cum),
+        "output_errors": output_errors,
+    }
+    try:
+        (out_dir / id_files / "run_status.json").write_text(
+            json.dumps(run_status, indent=2), encoding="utf-8"
+        )
+    except Exception as exc:
+        warnings.warn(f"run_status.json could not be saved: {exc}", RuntimeWarning, stacklevel=2)
 
-    save_sinuosity_history(out_dir, id_files, step_hist, sinuo_hist)
+    if output_errors:
+        raise RuntimeError("Required output finalization failed: " + "; ".join(output_errors))
+
     if use_equivalence_stability:
         stability_info = _combined_sinuosity_stability_metrics(
             step_hist,
@@ -938,8 +1034,8 @@ def run_project(
     numba_parallel: bool = False,
     numba_fastmath: bool = False,
     output_units: str = "dimensionless",
-    output_length_scale: float = 1.0,
-    output_velocity_scale: float = 1.0,
+    output_length_scale: float | None = None,
+    output_velocity_scale: float | None = None,
     **kwargs,
 ):
     base_dir = Path(base_dir)
@@ -952,8 +1048,8 @@ def run_project(
         dimensionless_input_table(df, case_i)
 
     flow_bc = str(flow_bc).lower()
-    flow_paral = int(flow_paral)
-    flow_workers = int(flow_workers)
+    # Preserve numeric types so run_case can reject fractional controls rather
+    # than silently truncating them.
     flow_backend = str(flow_backend).lower()
     numba_parallel = bool(numba_parallel)
     numba_fastmath = bool(numba_fastmath)

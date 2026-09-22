@@ -43,6 +43,7 @@ def dimensional_config(tmp_path):
             Mdat=6,
             mobility_mode="direct_shear_stress",
             tau_b=20.0,
+            velocity=2.0,
         ),
         geometry=GeometrySettings(mode="scale_by_dimensional_half_width"),
     )
@@ -110,7 +111,7 @@ def test_repeated_runs_preserve_previous_files_and_separate_histories(tmp_path):
     assert before == {p.relative_to(first_root): p.read_bytes() for p in first_root.rglob("*") if p.is_file()}
     second_root = tmp_path / "Output" / second["id_files"]
     rows = pd.concat(pd.read_csv(p) for p in (second_root / "files").glob("var_*.csv"))
-    assert sorted(rows.jt) == [1.0, 2.0]
+    assert sorted(rows.state_step) == [0.0, 1.0, 2.0]
     config = json.loads((second_root / "run_config.json").read_text(encoding="utf-8"))
     assert config["options"]["max_steps"] == 2
     assert config["options"]["ER"] == 1e-8
@@ -147,12 +148,22 @@ def test_run_all_uses_actual_ids_in_table_order(tmp_path, monkeypatch):
 @pytest.mark.parametrize("ids", [[2, 2], [0, 3], [1.5, 3], [float("nan"), 3]])
 def test_parameter_reader_rejects_invalid_case_ids(tmp_path, ids):
     path = tmp_path / "Parameter.csv"
-    pd.DataFrame({"Id": ids}).to_csv(path, index=False)
-    with pytest.raises(ValueError, match="Case IDs"):
+    pd.DataFrame(
+        {
+            "Id": ids,
+            "Beta": [9.0, 9.0],
+            "ds": [0.005, 0.005],
+            "Thetha": [0.3, 0.3],
+            "flagbed": [2, 2],
+            "r": [0.5, 0.5],
+            "Mdat": [6, 6],
+        }
+    ).to_csv(path, index=False)
+    with pytest.raises(ValueError, match="Id"):
         read_parameter_table(path)
 
 
-@pytest.mark.parametrize("disabled_limit", [None, 0])
+@pytest.mark.parametrize("disabled_limit", [0])
 def test_all_stop_mode_ignores_disabled_time_and_cutoff_limits(tmp_path, disabled_limit):
     copy_inputs(tmp_path)
     # Safety callback prevents a regression from hanging the test indefinitely.

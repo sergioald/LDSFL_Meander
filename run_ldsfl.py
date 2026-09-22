@@ -156,14 +156,14 @@ def main() -> None:
     ap.add_argument(
         "--output-length-scale",
         type=float,
-        default=1.0,
-        help="Length scale used when dimensional outputs are requested.",
+        default=None,
+        help="Required finite positive length scale when dimensional outputs are requested.",
     )
     ap.add_argument(
         "--output-velocity-scale",
         type=float,
-        default=1.0,
-        help="Velocity scale used when dimensional outputs are requested.",
+        default=None,
+        help="Required finite positive reference velocity U0 for dimensional outputs.",
     )
     ap.add_argument("--flow-bc", default="free", choices=["free", "periodic"])
     ap.add_argument("--flow-paral", type=int, default=0, choices=[0, 1])

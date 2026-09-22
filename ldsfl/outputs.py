@@ -211,23 +211,43 @@ def save_sinuosity_history(
     id_files: str,
     step_hist,
     sinuo_hist,
-):
-    """Save step-vs-sinuosity history as CSV and PNG.
+    *,
+    start_index: int = 0,
+) -> int:
+    """Append new step-vs-sinuosity rows and return the saved row count.
 
     Sinuosity is dimensionless. The x-axis is solver iteration step, not physical time.
     """
     step_hist = np.asarray(step_hist, dtype=np.int64)
     sinuo_hist = np.asarray(sinuo_hist, dtype=np.float64)
     if step_hist.size == 0 or sinuo_hist.size == 0:
-        return
+        return int(start_index)
     if step_hist.size != sinuo_hist.size:
         n = min(step_hist.size, sinuo_hist.size)
         step_hist = step_hist[:n]
         sinuo_hist = sinuo_hist[:n]
 
-    df = pd.DataFrame({"step": step_hist, "sinuo": sinuo_hist})
+    start_index = int(start_index)
+    if start_index < 0 or start_index > step_hist.size:
+        raise ValueError("start_index is outside the sinuosity history")
     csv_path = base_out / id_files / "files" / f"sinuosity_history_{id_files}.csv"
-    df.to_csv(csv_path, index=False)
+    new_rows = pd.DataFrame(
+        {"step": step_hist[start_index:], "sinuo": sinuo_hist[start_index:]}
+    )
+    if not new_rows.empty:
+        append = start_index > 0 and csv_path.exists()
+        new_rows.to_csv(csv_path, mode="a" if append else "w", header=not append, index=False)
+    return int(step_hist.size)
+
+
+def plot_sinuosity_history(base_out: Path, id_files: str, step_hist, sinuo_hist) -> None:
+    """Create the optional final sinuosity-history figure."""
+    step_hist = np.asarray(step_hist, dtype=np.int64)
+    sinuo_hist = np.asarray(sinuo_hist, dtype=np.float64)
+    if step_hist.size == 0 or sinuo_hist.size == 0:
+        return
+    if step_hist.size != sinuo_hist.size:
+        raise ValueError("step and sinuosity histories must have equal lengths")
 
     fig = Figure(figsize=(7.0, 4.5), dpi=100)
     ax = fig.add_subplot(111)

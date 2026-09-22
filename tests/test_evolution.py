@@ -67,6 +67,26 @@ def test_dxdy2_non_finite_velocity_raises_without_runtime_warning():
             )
 
 
+@pytest.mark.parametrize(
+    "ert,cstab,message",
+    [(0.0, 0.01, "ERT"), (-1.0, 0.01, "ERT"), (1.0, 0.0, "cstab"), (1.0, -0.01, "cstab")],
+)
+def test_dxdy2_rejects_nonpositive_rates_and_stability_coefficients(ert, cstab, message):
+    with pytest.raises(ValueError, match=message):
+        dxdy2(
+            ert,
+            np.ones(2),
+            np.zeros(2),
+            np.zeros(2),
+            np.zeros(2),
+            deltas=1.0,
+            Nsold=0,
+            Ns=2,
+            jt=1,
+            cstab=cstab,
+        )
+
+
 def test_update_parameters_identity_case_keeps_values_unchanged():
     beta, theta0, ds = update_parameters(
         Cf0_old=0.01,

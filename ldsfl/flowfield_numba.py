@@ -16,7 +16,6 @@ Notes
 
 from __future__ import annotations
 
-
 import numpy as np
 
 # --- Compatibility shim for a known `numba` ↔ `coverage` API mismatch ---
@@ -28,12 +27,12 @@ try:  # pragma: no cover
     import coverage  # type: ignore
 
     if not hasattr(coverage, "types"):
-        class _Types:  # noqa: WPS431 (nested class)
+        class _Types:
             pass
         coverage.types = _Types()  # type: ignore[attr-defined]
 
     if not hasattr(coverage.types, "Tracer"):
-        class _Tracer:  # noqa: WPS431
+        class _Tracer:
             pass
         coverage.types.Tracer = _Tracer  # type: ignore[attr-defined]
 
@@ -52,7 +51,7 @@ except Exception:
     pass
 
 try:
-    from numba import njit
+    from numba import njit, prange
 except Exception as e:  # pragma: no cover
     # Provide a clearer error when imported without numba.
     raise ImportError(
@@ -262,10 +261,6 @@ def _jtoll_for_lam(lam: complex, s_pad: np.ndarray, toll: float, *, upwind: bool
 # -----------------------------
 # Public entry points
 # -----------------------------
-
-
-
-from numba import prange
 
 _MODE_FN_CACHE = {}
 _MODE_ADDER_CACHE = {}
@@ -492,7 +487,8 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
             j3toll = jtoll_sl1(abs(lm3r))
             j4toll = jtoll_sl1(abs(lm4r))
 
-            # um1: -Am*(g10*sum1 + g20*sum2 + g30*sum3) using SEMIANA1
+            # Sub-resonant reference algebra: lambda1 is upstream/SEMIANA1;
+            # lambda2, lambda3 and lambda4 are downstream/SEMIANA2.
             if use_cached:
                 # lm1 (allow_pos_k False)
                 kmax1 = max(1, min(N, j1toll - 1))
@@ -502,11 +498,11 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
                 # lm2/lm3 in the reference use allow_pos_k True
                 kmax2 = max(1, min(N, j2toll - 1))
                 cA2, cB2, lmds2, exp2, kmax2 = _cached_tables_for_lam_np(lm2, c_pad, deltas, kmax2, allow_pos_k=True)
-                fill_upstr_cached_real(out, cA2, cB2, lmds2, exp2, kmax2, j2toll, N, complex(mode_scale * (-Aj), 0.0) * g20jm)
+                fill_dwstr_cached_real(out, cA2, cB2, lmds2, exp2, kmax2, j2toll, N, complex(mode_scale * Aj, 0.0) * g20jm)
 
                 kmax3 = max(1, min(N, j3toll - 1))
                 cA3, cB3, lmds3, exp3, kmax3 = _cached_tables_for_lam_np(lm3, c_pad, deltas, kmax3, allow_pos_k=True)
-                fill_upstr_cached_real(out, cA3, cB3, lmds3, exp3, kmax3, j3toll, N, complex(mode_scale * (-Aj), 0.0) * g30jm)
+                fill_dwstr_cached_real(out, cA3, cB3, lmds3, exp3, kmax3, j3toll, N, complex(mode_scale * Aj, 0.0) * g30jm)
 
                 # um2: +Am*g40*sum4 using SEMIANA2
                 kmax4 = max(1, min(N, j4toll - 1))
@@ -514,8 +510,8 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
                 fill_dwstr_cached_real(out, cA4, cB4, lmds4, exp4, kmax4, j4toll, N, complex(mode_scale * Aj, 0.0) * g40jm)
             else:
                 fill_upstr_direct_real(out, c_pad, float(deltas), lm1, j1toll, N, complex(mode_scale * (-Aj), 0.0) * g10jm)
-                fill_upstr_direct_real(out, c_pad, float(deltas), lm2, j2toll, N, complex(mode_scale * (-Aj), 0.0) * g20jm)
-                fill_upstr_direct_real(out, c_pad, float(deltas), lm3, j3toll, N, complex(mode_scale * (-Aj), 0.0) * g30jm)
+                fill_dwstr_direct_real(out, c_pad, float(deltas), lm2, j2toll, N, complex(mode_scale * Aj, 0.0) * g20jm)
+                fill_dwstr_direct_real(out, c_pad, float(deltas), lm3, j3toll, N, complex(mode_scale * Aj, 0.0) * g30jm)
                 fill_dwstr_direct_real(out, c_pad, float(deltas), lm4, j4toll, N, complex(mode_scale * Aj, 0.0) * g40jm)
 
         elif lm2r > 0.0:

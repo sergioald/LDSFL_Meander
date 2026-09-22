@@ -5,10 +5,10 @@ import tempfile
 from pathlib import Path
 
 from ldsfl.gui_utils import (
-    DimensionlessInputs,
     DimensionalInputs,
-    GuiCaseConfig,
+    DimensionlessInputs,
     GeometrySettings,
+    GuiCaseConfig,
     RunControls,
     config_from_dict,
     config_to_dict,
@@ -69,6 +69,7 @@ def main() -> None:
                 d50=0.05,
                 mobility_mode='direct_shields',
                 theta0=0.3,
+                velocity=1.2,
                 flagbed=2,
                 rpic_0=0.5,
                 Mdat=6,
@@ -155,6 +156,7 @@ def main() -> None:
                 d50=0.05,
                 mobility_mode='direct_shields',
                 theta0=0.3,
+                velocity=1.2,
                 flagbed=2,
                 rpic_0=0.5,
                 Mdat=6,
@@ -176,6 +178,7 @@ def main() -> None:
                 d50=0.05,
                 mobility_mode='direct_shields',
                 theta0=0.3,
+                velocity=1.2,
                 flagbed=2,
                 rpic_0=0.5,
                 Mdat=6,
