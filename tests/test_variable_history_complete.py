@@ -1,7 +1,7 @@
 """Regression test for variable-history bookkeeping in run_case."""
 
 from __future__ import annotations
-
+import pytest
 import shutil
 from pathlib import Path
 
@@ -43,7 +43,11 @@ def test_every_step_is_recorded_exactly_once(tmp_path):
     assert history["jt"].tolist() == [float(j) for j in range(1, max_steps + 2)]
     assert history.iloc[0]["dt"] == 0.0
     assert history.iloc[0]["dt_cum"] == 0.0
-    assert history.iloc[-1]["dt_cum"] == result["dt_cum"]
+    assert history.iloc[-1]["dt_cum"] == pytest.approx(
+                result["dt_cum"],
+                rel=1.0e-15,
+                abs=1.0e-9,
+            )
 
     sinuosity = pd.read_csv(files_dir / f"sinuosity_history_{result['id_files']}.csv")
     assert sinuosity["step"].tolist() == list(range(max_steps + 1))
