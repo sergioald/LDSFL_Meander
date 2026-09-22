@@ -402,23 +402,36 @@ def resolve_output_units(config: GuiCaseConfig) -> OutputUnits:
 
 def output_scales(config: GuiCaseConfig) -> dict:
     requested = str(config.run.output_units).lower()
-    if requested == "dimensional" and (config.mode != "dimensional" or config.dimensional is None):
+
+    if requested not in {"dimensionless", "dimensional"}:
+        raise ValueError(
+            "output_units must be one of: dimensional, dimensionless"
+        )
+
+    if requested == "dimensional" and (
+        config.mode != "dimensional" or config.dimensional is None
+    ):
         raise ValueError("Dimensional output requires dimensional input mode.")
+
     units = resolve_output_units(config)
     length_scale = 1.0
     velocity_scale = 1.0
+
     if units == "dimensional" and config.dimensional is not None:
         # Solver coordinates are normalized by B0 even when the input CSV is
         # already dimensionless (including geometry loaded for continuation).
         length_scale = float(config.dimensional.half_width)
         velocity = float(config.dimensional.resolved_velocity())
+
         if not math.isfinite(velocity) or velocity <= 0.0:
             raise ValueError(
                 "Dimensional velocity output requires a reference velocity U0. "
                 "The selected input method does not provide enough information to derive U0. "
                 "Supply velocity/friction information or use dimensionless output."
             )
+
         velocity_scale = velocity
+
     return {
         "requested_output_units": str(config.run.output_units),
         "resolved_output_units": units,
@@ -509,7 +522,7 @@ def validate_case_config(config: GuiCaseConfig) -> list[str]:
         flow_paral=config.run.flow_paral,
         flow_workers=config.run.flow_workers,
         flow_backend=config.run.backend,
-        output_units=scales["resolved_output_units"],
+        output_units=config.run.output_units,
         output_length_scale=scales["output_length_scale"],
         output_velocity_scale=scales["output_velocity_scale"],
         stop_mode=config.run.stop_mode,
