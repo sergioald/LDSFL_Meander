@@ -891,6 +891,7 @@ def main() -> int:
     comparisons = ("vertical-only", "full") if args.comparison == "both" else (args.comparison,)
     args.results_dir.mkdir(parents=True, exist_ok=True)
     generated = []
+    incomplete = False
     for comparison in comparisons:
         if comparison == "vertical-only":
             settings = (
@@ -937,9 +938,10 @@ def main() -> int:
         generated.append(output_dir)
         print(f"Wrote results: {output_dir}", flush=True)
         if not all(run["completed_steps"] == args.steps and run["run_error"] is None for run in runs):
+            incomplete = True
             print(f"{comparison} did not complete the requested step count for both runs; stopping subsequent comparisons.", flush=True)
             break
-    return 0 if generated else 1
+    return 0 if generated and not incomplete else 1
 
 
 if __name__ == "__main__":
