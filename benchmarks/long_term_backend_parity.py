@@ -175,6 +175,8 @@ class RunRecorder:
         self.cache_misses = 0
         self.cache_final = {"hits": 0, "misses": 0, "currsize": 0, "maxsize": 16}
         self.vertical_coefficients_seconds = 0.0
+        self.modal_coefficients_seconds = 0.0
+        self.semiana_response_seconds = 0.0
         self.flow_calls = 0
         self.checkpoint_states: dict[int, dict[str, Any]] = {}
         self.scalar_history: list[dict[str, Any]] = []
@@ -221,6 +223,8 @@ class RunRecorder:
                 "maxsize": int(after.maxsize),
             }
             self.vertical_coefficients_seconds += float(timing.get("vertical_coefficients", 0.0))
+            self.modal_coefficients_seconds += float(timing.get("modal_coefficients", 0.0))
+            self.semiana_response_seconds += float(timing.get("semiana_response", 0.0))
             self.flow_calls += 1
             try:
                 velocity = np.asarray(result[0], dtype=np.float64)
@@ -472,6 +476,15 @@ def _run_one(
         "flowfield_total_seconds": timings.get("flowfield_total"),
         "flowfield_legacy_loop_seconds": timings.get("flowfield"),
         "vertical_coefficient_seconds_all_flow_calls": float(recorder.vertical_coefficients_seconds),
+        "modal_coefficient_seconds_all_flow_calls": float(recorder.modal_coefficients_seconds),
+        "semiana_response_seconds_all_flow_calls": float(recorder.semiana_response_seconds),
+        "solver_component_timings": {
+            key: timings.get(key)
+            for key in (
+                "flowfield_loop", "flowfield_final", "flowfield_total", "vertical_coefficients",
+                "modal_coefficients", "semiana_response", "move", "geometry", "update", "saving",
+            )
+        },
         "k0123_cache_hits": int(recorder.cache_hits),
         "k0123_cache_misses": int(recorder.cache_misses),
         "k0123_cache_final": recorder.cache_final,
