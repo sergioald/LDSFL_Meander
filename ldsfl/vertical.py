@@ -1,6 +1,8 @@
 # ldsfl/vertical.py
 from __future__ import annotations
 
+from functools import lru_cache
+
 import numpy as np
 
 
@@ -202,3 +204,24 @@ def k0123(Cf0: float):
     k3 = dG1[0] / Du0   # MATLAB: dG1(1)/Du0
 
     return float(k0), float(k1), float(k2), float(k3), u0, G0, G1, zg, z0
+
+
+@lru_cache(maxsize=16)
+def _k0123_reference_coefficients_cached(Cf0: float) -> tuple[float, float, float, float]:
+    """Cache exact reference coefficients for repeated modal/resonance calls."""
+    k0, k1, k2, k3, *_ = k0123(Cf0)
+    return k0, k1, k2, k3
+
+
+def k0123_reference_coefficients_cached(Cf0: float) -> tuple[float, float, float, float]:
+    """Return reference coefficients cached by the exact float ``Cf0`` key."""
+    return _k0123_reference_coefficients_cached(float(Cf0))
+
+
+def clear_k0123_reference_cache() -> None:
+    """Clear the bounded reference coefficient cache."""
+    _k0123_reference_coefficients_cached.cache_clear()
+
+
+def k0123_reference_cache_info():
+    return _k0123_reference_coefficients_cached.cache_info()

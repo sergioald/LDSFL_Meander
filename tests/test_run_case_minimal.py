@@ -33,6 +33,7 @@ def test_run_case_minimal_example_creates_expected_outputs(tmp_path):
         stop_on_time=False,
         stop_on_cutoffs=True,
         do_plots=False,
+        collect_timing=True,
     )
 
     assert result["steps"] == 1
@@ -41,6 +42,10 @@ def test_run_case_minimal_example_creates_expected_outputs(tmp_path):
     assert result["id_files"]
     assert result["sinuo_final"] > 0.0
     assert isinstance(result["sinuosity_stability"], dict)
+    timings = result["timings"]
+    assert timings["flowfield"] == timings["flowfield_loop"]
+    assert timings["flowfield_final"] > 0.0
+    assert timings["flowfield_total"] == timings["flowfield_loop"] + timings["flowfield_final"]
 
     output_root = tmp_path / "Output" / result["id_files"]
     xyu_dir = output_root / "xyu"

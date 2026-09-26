@@ -1,0 +1,421 @@
+{
+  "case": "Case 1 inputs; deterministic sinusoidal curvature for direct flowfield scenarios",
+  "cf0_base_exact": 0.01318086081547672,
+  "vertical_repetitions": 30,
+  "flowfield_repetitions": 12,
+  "numba_fastmath": false,
+  "vertical_measurements": {
+    "python_reference_uncached": {
+      "function_timed": "ldsfl.vertical.k0123(Cf0), called directly",
+      "timing": {
+        "repetitions": 30,
+        "min_seconds": 0.1455017999978736,
+        "median_seconds": 0.18186765001155436,
+        "max_seconds": 0.27339250000659376
+      },
+      "reference_cache_before": {
+        "hits": 0,
+        "misses": 0,
+        "currsize": 0,
+        "maxsize": 16
+      },
+      "reference_cache_after": {
+        "hits": 0,
+        "misses": 0,
+        "currsize": 0,
+        "maxsize": 16
+      },
+      "numba_cache_before": {
+        "hits": 0,
+        "misses": 0,
+        "currsize": 0,
+        "maxsize": 16
+      },
+      "numba_cache_after": {
+        "hits": 0,
+        "misses": 0,
+        "currsize": 0,
+        "maxsize": 16
+      }
+    },
+    "numba_raw_kernel_uncached_after_jit_warmup": {
+      "function_timed": "ldsfl.vertical_numba._k0123_kernel(Cf0), raw compiled dispatcher bypassing the exact-key LRU",
+      "untimed_jit_or_persistent_cache_warmup_seconds": 1.1446501000027638,
+      "compiled_signatures": 1,
+      "timing": {
+        "repetitions": 30,
+        "min_seconds": 0.00043830001959577203,
+        "median_seconds": 0.0004640499973902479,
+        "max_seconds": 0.0006285000126808882
+      },
+      "wrapper_cache_before": {
+        "hits": 0,
+        "misses": 0,
+        "currsize": 0,
+        "maxsize": 16
+      },
+      "wrapper_cache_after": {
+        "hits": 0,
+        "misses": 0,
+        "currsize": 0,
+        "maxsize": 16
+      }
+    },
+    "numba_public_wrapper_exact_key_miss": {
+      "function_timed": "ldsfl.vertical_numba.k0123_numba_cached(Cf0), cache cleared outside each timed call",
+      "timing": {
+        "repetitions": 30,
+        "min_seconds": 0.00045670001418329775,
+        "median_seconds": 0.00048504999722354114,
+        "max_seconds": 0.000762099982239306
+      },
+      "summed_cache_delta_across_calls": {
+        "hits": 0,
+        "misses": 30
+      },
+      "cache_info_after_final_miss": {
+        "hits": 0,
+        "misses": 1,
+        "currsize": 1,
+        "maxsize": 16
+      }
+    },
+    "numba_public_wrapper_exact_key_hit": {
+      "function_timed": "ldsfl.vertical_numba.k0123_numba_cached(Cf0), same exact float key primed before timing",
+      "timing": {
+        "repetitions": 30,
+        "min_seconds": 1.1299998732283711e-05,
+        "median_seconds": 1.1899988749064505e-05,
+        "max_seconds": 2.8699985705316067e-05
+      },
+      "cache_info_before_timed_calls": {
+        "hits": 0,
+        "misses": 1,
+        "currsize": 1,
+        "maxsize": 16
+      },
+      "cache_info_after_timed_calls": {
+        "hits": 30,
+        "misses": 1,
+        "currsize": 1,
+        "maxsize": 16
+      },
+      "timed_cache_delta": {
+        "hits": 30,
+        "misses": 0
+      }
+    }
+  },
+  "flowfield_scenarios": {
+    "repeated_identical_cf0": {
+      "numpy_response_numpy_vertical": {
+        "response_backend": "numpy",
+        "vertical_backend": "numpy",
+        "timing": {
+          "repetitions": 12,
+          "min_seconds": 0.1778057000192348,
+          "median_seconds": 0.23821229999884963,
+          "max_seconds": 0.41553850000491366
+        },
+        "median_components_seconds": {
+          "vertical_coefficients": 6.049987860023975e-06,
+          "modal_coefficients": 0.001266299994313158,
+          "semiana_response": 0.23581369998282753,
+          "flowfield_total": 0.23819294999702834
+        },
+        "cache_info_before": {
+          "hits": 0,
+          "misses": 0,
+          "currsize": 0,
+          "maxsize": 16
+        },
+        "cache_info_after": {
+          "hits": 11,
+          "misses": 1,
+          "currsize": 1,
+          "maxsize": 16
+        },
+        "cache_delta": {
+          "hits": 11,
+          "misses": 1
+        }
+      },
+      "numba_response_numpy_vertical": {
+        "response_backend": "numba",
+        "vertical_backend": "numpy",
+        "timing": {
+          "repetitions": 12,
+          "min_seconds": 0.005657599976984784,
+          "median_seconds": 0.006649899994954467,
+          "max_seconds": 0.14347780001116917
+        },
+        "median_components_seconds": {
+          "vertical_coefficients": 4.9000082071870565e-06,
+          "modal_coefficients": 0.0008786999969743192,
+          "semiana_response": 0.005763299996033311,
+          "flowfield_total": 0.006634199991822243
+        },
+        "cache_info_before": {
+          "hits": 0,
+          "misses": 0,
+          "currsize": 0,
+          "maxsize": 16
+        },
+        "cache_info_after": {
+          "hits": 11,
+          "misses": 1,
+          "currsize": 1,
+          "maxsize": 16
+        },
+        "cache_delta": {
+          "hits": 11,
+          "misses": 1
+        }
+      },
+      "numba_response_numba_vertical": {
+        "response_backend": "numba",
+        "vertical_backend": "numba",
+        "timing": {
+          "repetitions": 12,
+          "min_seconds": 0.005184299981920049,
+          "median_seconds": 0.00597459998971317,
+          "max_seconds": 0.006985500018345192
+        },
+        "median_components_seconds": {
+          "vertical_coefficients": 1.61500065587461e-05,
+          "modal_coefficients": 0.0008177499985322356,
+          "semiana_response": 0.00490045000333339,
+          "flowfield_total": 0.005960800001048483
+        },
+        "cache_info_before": {
+          "hits": 0,
+          "misses": 0,
+          "currsize": 0,
+          "maxsize": 16
+        },
+        "cache_info_after": {
+          "hits": 11,
+          "misses": 1,
+          "currsize": 1,
+          "maxsize": 16
+        },
+        "cache_delta": {
+          "hits": 11,
+          "misses": 1
+        }
+      }
+    },
+    "distinct_exact_cf0": {
+      "numpy_response_numpy_vertical": {
+        "response_backend": "numpy",
+        "vertical_backend": "numpy",
+        "cf0_values_exact": [
+          0.013180860828657583,
+          0.01318086084183844,
+          0.013180860855019303,
+          0.013180860868200165,
+          0.013180860881381023,
+          0.013180860894561885,
+          0.013180860907742745,
+          0.013180860920923607,
+          0.013180860934104468,
+          0.013180860947285327,
+          0.01318086096046619,
+          0.013180860973647051
+        ],
+        "distinct_exact_values": 12,
+        "timing": {
+          "repetitions": 12,
+          "min_seconds": 0.2725580000260379,
+          "median_seconds": 0.36064600000099745,
+          "max_seconds": 0.3999965999973938
+        },
+        "median_components_seconds": {
+          "vertical_coefficients": 0.1356355499883648,
+          "modal_coefficients": 0.0011805499816546217,
+          "semiana_response": 0.2218923500040546,
+          "flowfield_total": 0.3606256500061136
+        },
+        "cache_info_before": {
+          "hits": 0,
+          "misses": 0,
+          "currsize": 0,
+          "maxsize": 16
+        },
+        "cache_info_after": {
+          "hits": 0,
+          "misses": 12,
+          "currsize": 12,
+          "maxsize": 16
+        },
+        "cache_delta": {
+          "hits": 0,
+          "misses": 12
+        }
+      },
+      "numba_response_numpy_vertical": {
+        "response_backend": "numba",
+        "vertical_backend": "numpy",
+        "cf0_values_exact": [
+          0.013180860828657583,
+          0.01318086084183844,
+          0.013180860855019303,
+          0.013180860868200165,
+          0.013180860881381023,
+          0.013180860894561885,
+          0.013180860907742745,
+          0.013180860920923607,
+          0.013180860934104468,
+          0.013180860947285327,
+          0.01318086096046619,
+          0.013180860973647051
+        ],
+        "distinct_exact_values": 12,
+        "timing": {
+          "repetitions": 12,
+          "min_seconds": 0.11082220001844689,
+          "median_seconds": 0.13221229999908246,
+          "max_seconds": 0.13915730000007898
+        },
+        "median_components_seconds": {
+          "vertical_coefficients": 0.12467790000664536,
+          "modal_coefficients": 0.0008657500147819519,
+          "semiana_response": 0.004887699993560091,
+          "flowfield_total": 0.13219784999091644
+        },
+        "cache_info_before": {
+          "hits": 0,
+          "misses": 0,
+          "currsize": 0,
+          "maxsize": 16
+        },
+        "cache_info_after": {
+          "hits": 0,
+          "misses": 12,
+          "currsize": 12,
+          "maxsize": 16
+        },
+        "cache_delta": {
+          "hits": 0,
+          "misses": 12
+        }
+      },
+      "numba_response_numba_vertical": {
+        "response_backend": "numba",
+        "vertical_backend": "numba",
+        "cf0_values_exact": [
+          0.013180860828657583,
+          0.01318086084183844,
+          0.013180860855019303,
+          0.013180860868200165,
+          0.013180860881381023,
+          0.013180860894561885,
+          0.013180860907742745,
+          0.013180860920923607,
+          0.013180860934104468,
+          0.013180860947285327,
+          0.01318086096046619,
+          0.013180860973647051
+        ],
+        "distinct_exact_values": 12,
+        "timing": {
+          "repetitions": 12,
+          "min_seconds": 0.006916600017575547,
+          "median_seconds": 0.00722880000830628,
+          "max_seconds": 0.008306699979584664
+        },
+        "median_components_seconds": {
+          "vertical_coefficients": 0.0004682500148192048,
+          "modal_coefficients": 0.001151499993284233,
+          "semiana_response": 0.0055679500073893,
+          "flowfield_total": 0.007212149997940287
+        },
+        "cache_info_before": {
+          "hits": 0,
+          "misses": 0,
+          "currsize": 0,
+          "maxsize": 16
+        },
+        "cache_info_after": {
+          "hits": 0,
+          "misses": 12,
+          "currsize": 12,
+          "maxsize": 16
+        },
+        "cache_delta": {
+          "hits": 0,
+          "misses": 12
+        }
+      }
+    }
+  },
+  "run_case_same_controls": {
+    "numpy": {
+      "backend": "numpy",
+      "controls": {
+        "case_i": 1,
+        "max_steps": 5,
+        "ER": 1e-08,
+        "flow_paral": 0,
+        "numba_parallel": false,
+        "numba_fastmath": false,
+        "do_plots": false
+      },
+      "total_wall_seconds": 1.9791215999866836,
+      "flowfield_loop_seconds": 1.2812499999417923,
+      "flowfield_final_seconds": 0.3664197000034619,
+      "flowfield_total_seconds": 1.6476696999452543,
+      "historical_flowfield_seconds": 1.2812499999417923,
+      "vertical_coefficients_loop_seconds": 0.44717870000749826,
+      "completed_migration_steps": 5,
+      "flowfield_calls_including_final_snapshot": 6,
+      "flowfield_cf0_values_exact": [
+        0.01318086081547672,
+        0.01318086081547672,
+        0.013180873831279973,
+        0.013180866125835368,
+        0.013180849649741547,
+        0.013180831860489867
+      ],
+      "distinct_exact_cf0_count": 5,
+      "k0123_cache_delta_during_flowfield_calls": {
+        "hits": 1,
+        "misses": 5
+      }
+    },
+    "numba": {
+      "backend": "numba",
+      "controls": {
+        "case_i": 1,
+        "max_steps": 5,
+        "ER": 1e-08,
+        "flow_paral": 0,
+        "numba_parallel": false,
+        "numba_fastmath": false,
+        "do_plots": false
+      },
+      "total_wall_seconds": 0.1904997999954503,
+      "flowfield_loop_seconds": 0.03440100001171231,
+      "flowfield_final_seconds": 0.007983299990883097,
+      "flowfield_total_seconds": 0.04238430000259541,
+      "historical_flowfield_seconds": 0.03440100001171231,
+      "vertical_coefficients_loop_seconds": 0.0019429999811109155,
+      "completed_migration_steps": 5,
+      "flowfield_calls_including_final_snapshot": 6,
+      "flowfield_cf0_values_exact": [
+        0.01318086081547672,
+        0.01318086081547672,
+        0.013180873831279973,
+        0.013180866125835368,
+        0.013180849649741547,
+        0.013180831860489867
+      ],
+      "distinct_exact_cf0_count": 5,
+      "k0123_cache_delta_during_flowfield_calls": {
+        "hits": 1,
+        "misses": 5
+      }
+    }
+  },
+  "timing_note": "A/B/C/D are separate direct-call measurements. B excludes its untimed JIT or persistent-cache warm-up. C clears the LRU outside each timed call; D times only exact-key hits. Flowfield kernels are warmed before comparison, while the exact vertical LRU is cleared per scenario. run_case records both its in-loop solves and the final-snapshot recomputation. Timings are machine- and load-dependent."
+}

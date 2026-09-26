@@ -3,20 +3,21 @@ from __future__ import annotations
 
 import os
 from concurrent.futures import ThreadPoolExecutor
+from time import perf_counter
 
 import numpy as np
 
-from .semiana import (
-    semiana1,
-    semiana1_cached,
-    semiana2,
-    semiana2_cached,
-)
 from .modes import (
     _compute_flag,
     _precompute_modes,
     _roots_companion_matlab,
     _sort_roots_like_matlab_swaps,
+)
+from .semiana import (
+    semiana1,
+    semiana1_cached,
+    semiana2,
+    semiana2_cached,
 )
 
 __all__ = [
@@ -441,8 +442,10 @@ def parall_u_free(
     paral: int = 0,
     n_workers: int | None = None,
     backend: str = "numpy",
+    vertical_backend: str | None = None,
     numba_parallel: bool = False,
     numba_fastmath: bool = False,
+    timing: dict[str, float] | None = None,
 ):
     """
     Full Parall_U_free with switches:
@@ -450,16 +453,22 @@ def parall_u_free(
 
     This version uses semiana*_cached (fast).
     """
+    flow_start = perf_counter() if timing is not None else 0.0
+    mode_timing: dict[str, float] | None = {} if timing is not None else None
+    backend = str(backend).lower().strip()
+    if backend not in ("numpy", "numba"):
+        raise ValueError(f"Unknown backend: {backend!r}. Use 'numpy' or 'numba'.")
+    selected_vertical_backend = str(vertical_backend or backend).lower().strip()
+    if selected_vertical_backend not in ("numpy", "numba"):
+        raise ValueError(f"Unknown vertical backend: {selected_vertical_backend!r}. Use 'numpy' or 'numba'.")
     Am, lamb1, lamb2, lamb3, lamb4, g10, g20, g30, g40, g11, g21, g31, g41 = _precompute_modes(
-        Cf0, CT, CD, phiT, phiD, beta, rpic, theta0, F0, Mdat
+        Cf0, CT, CD, phiT, phiD, beta, rpic, theta0, F0, Mdat,
+        backend=selected_vertical_backend, timing=mode_timing,
     )
 
     c_pad, s_pad = _prepare_padded(c, s)
 
-    backend = str(backend).lower().strip()
-    if backend not in ("numpy", "numba"):
-        raise ValueError(f"Unknown backend: {backend!r}. Use 'numpy' or 'numba'.")
-
+    response_start = perf_counter() if timing is not None else 0.0
     if backend == "numba":
         # Avoid nested parallelism: Python threads over modes + Numba threads over points
         # can oversubscribe CPU cores and slow things down.
@@ -516,6 +525,10 @@ def parall_u_free(
         )
 
     flag = _compute_flag(lamb2)
+    if timing is not None:
+        timing.update(mode_timing or {})
+        timing["semiana_response"] = perf_counter() - response_start
+        timing["flowfield_total"] = perf_counter() - flow_start
     return Ucplot_pad[1:].astype(np.float64), int(flag)
 
 

@@ -9,9 +9,11 @@ paths while preserving the MATLAB-compatible numerical ordering.
 
 from __future__ import annotations
 
+from time import perf_counter
+
 import numpy as np
 
-from .vertical import k0123
+from .vertical import k0123_reference_coefficients_cached
 
 
 def _roots_companion_matlab(p: np.ndarray, real_tol: float = 1e-13) -> np.ndarray:
@@ -76,6 +78,9 @@ def _precompute_modes(
     theta0: float,
     F0: float,
     Mdat: int,
+    *,
+    backend: str = "numpy",
+    timing: dict[str, float] | None = None,
 ) -> tuple[
     np.ndarray,
     np.ndarray,
@@ -93,7 +98,17 @@ def _precompute_modes(
 ]:
     """Compute Am, lamb1..4, g10..g41 exactly as MATLAB Parall_U_free.m."""
 
-    k0, k1, k2, k3, *_ = k0123(Cf0)
+    vertical_start = perf_counter() if timing is not None else 0.0
+    if str(backend).lower() == "numba":
+        from .vertical_numba import k0123_coefficients_numba_cached
+
+        k0, k1, k2, k3 = k0123_coefficients_numba_cached(Cf0)
+    else:
+        k0, k1, k2, k3 = k0123_reference_coefficients_cached(Cf0)
+    if timing is not None:
+        timing["vertical_coefficients"] = perf_counter() - vertical_start
+        timing["modal_coefficients"] = 0.0
+        modal_start = perf_counter()
 
     s1 = 2.0 / (1.0 - CT)
     s2 = CD / (1.0 - CT)
@@ -250,6 +265,8 @@ def _precompute_modes(
         g31[jm - 1] = wj_3 * (rho1 + rho2 * lam3 + rho3 * lam3**2 + rho4 * lam3**3)
         g41[jm - 1] = wj_4 * (rho1 + rho2 * lam4 + rho3 * lam4**2 + rho4 * lam4**3)
 
+    if timing is not None:
+        timing["modal_coefficients"] = perf_counter() - modal_start
     return Am, lamb1, lamb2, lamb3, lamb4, g10, g20, g30, g40, g11, g21, g31, g41
 
 

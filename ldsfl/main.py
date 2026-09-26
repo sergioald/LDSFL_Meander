@@ -602,8 +602,15 @@ def run_case(
     tim = None
     if bool(collect_timing):
         tim = {
+            # Historical key remains the sum of flow calls inside the loop.
             "flowfield": 0.0,
+            "flowfield_loop": 0.0,
+            "flowfield_final": 0.0,
             "flowfield_first": 0.0,
+            "flowfield_total": 0.0,
+            "vertical_coefficients": 0.0,
+            "modal_coefficients": 0.0,
+            "semiana_response": 0.0,
             "move": 0.0,
             "geometry": 0.0,
             "smoothing": 0.0,
@@ -671,10 +678,12 @@ def run_case(
                 if tim is not None and t0 is not None:
                     dt_flow = perf_counter() - t0
                     tim["flowfield"] += float(dt_flow)
+                    tim["flowfield_loop"] += float(dt_flow)
                     if steps == 0:
                         tim["flowfield_first"] = float(dt_flow)
             else:
                 t0 = perf_counter() if tim is not None else None
+                flow_components = {} if tim is not None else None
                 U, flag = parall_u_free(
                     c,
                     s,
@@ -698,10 +707,15 @@ def run_case(
                     backend=str(flow_backend),
                     numba_parallel=bool(numba_parallel),
                     numba_fastmath=bool(numba_fastmath),
+                    timing=flow_components,
                 )
                 if tim is not None and t0 is not None:
                     dt_flow = perf_counter() - t0
                     tim["flowfield"] += float(dt_flow)
+                    tim["flowfield_loop"] += float(dt_flow)
+                    tim["vertical_coefficients"] += float((flow_components or {}).get("vertical_coefficients", 0.0))
+                    tim["modal_coefficients"] += float((flow_components or {}).get("modal_coefficients", 0.0))
+                    tim["semiana_response"] += float((flow_components or {}).get("semiana_response", 0.0))
                     if steps == 0:
                         tim["flowfield_first"] = float(dt_flow)
 
@@ -860,32 +874,38 @@ def run_case(
     # does not prevent attempts to write the remaining artifacts.
     output_errors: list[str] = []
     try:
-        final_U = _final_snapshot_velocity(
-            U,
-            x=x,
-            y=y,
-            s=s,
-            th=th,
-            c=c,
-            Cf0=Cf0,
-            CT=CT,
-            CD=CD,
-            phiT=phiT,
-            phiD=phiD,
-            beta=beta,
-            rpic=rpic,
-            theta0=theta0,
-            F0=F0,
-            Mdat=Mdat,
-            n1=n1,
-            deltas=deltas,
-            flow_bc=flow_bc,
-            flow_paral=flow_paral,
-            n_workers=n_workers,
-            flow_backend=flow_backend,
-            numba_parallel=numba_parallel,
-            numba_fastmath=numba_fastmath,
-        )
+        final_flow_start = perf_counter() if tim is not None else None
+        try:
+            final_U = _final_snapshot_velocity(
+                U,
+                x=x,
+                y=y,
+                s=s,
+                th=th,
+                c=c,
+                Cf0=Cf0,
+                CT=CT,
+                CD=CD,
+                phiT=phiT,
+                phiD=phiD,
+                beta=beta,
+                rpic=rpic,
+                theta0=theta0,
+                F0=F0,
+                Mdat=Mdat,
+                n1=n1,
+                deltas=deltas,
+                flow_bc=flow_bc,
+                flow_paral=flow_paral,
+                n_workers=n_workers,
+                flow_backend=flow_backend,
+                numba_parallel=numba_parallel,
+                numba_fastmath=numba_fastmath,
+            )
+        finally:
+            if tim is not None and final_flow_start is not None:
+                tim["flowfield_final"] += float(perf_counter() - final_flow_start)
+                tim["flowfield_total"] = tim["flowfield_loop"] + tim["flowfield_final"]
         save_xystcu(
             out_dir,
             x,
