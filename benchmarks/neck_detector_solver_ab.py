@@ -273,7 +273,8 @@ def _timing_summary(run):
     return {
         "total_wall_seconds": run["total_wall_seconds"],
         "geometry_seconds": components.get("geometry"),
-        "neck_detector_seconds": components.get("geometry_neck"),
+        "neck_detector_seconds": components.get("geometry_neck_detector"),
+        "cutoff_phase_seconds": components.get("geometry_neck"),
         "flowfield_total_seconds": components.get("flowfield_total"),
         "flowfield_loop_seconds": components.get("flowfield_loop"),
         "flowfield_final_seconds": components.get("flowfield_final"),
@@ -343,7 +344,8 @@ def _run_stage(steps: int, output_root: Path) -> tuple[dict[str, Any], bool, Pat
     for key, a_key, b_key in (
         ("whole_solver", "total_wall_seconds", "total_wall_seconds"),
         ("geometry", "geometry_seconds", "geometry_seconds"),
-        ("neck_detector", "neck_detector_seconds", "neck_detector_seconds"),
+        ("detector", "neck_detector_seconds", "neck_detector_seconds"),
+        ("cutoff_phase", "cutoff_phase_seconds", "cutoff_phase_seconds"),
     ):
         denominator = batched_timing[b_key]
         speedups[key] = (
@@ -395,13 +397,16 @@ def _run_stage(steps: int, output_root: Path) -> tuple[dict[str, Any], bool, Pat
         "",
         f"Exact parity: **{exact}**. Both runs completed: **{complete}**.",
         "",
-        "| Run | Wall s | Geometry s | Neck detector s | Flowfield total s | Move s | Update s | Saving s | Cutoffs |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "`Detector s` measures only time inside `find_neck_cutoff_kdtree_with_refine` calls. `Full cutoff phase s` preserves `geometry_neck`, including detector calls and subsequent cutoff processing.",
+        "",
+        "| Run | Wall s | Geometry s | Detector s | Full cutoff phase s | Flowfield total s | Move s | Update s | Saving s | Cutoffs |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for name, timing in (("Scalar", scalar_timing), ("Batched", batched_timing)):
         report.append(
             f"| {name} | {_fmt(timing['total_wall_seconds'])} | {_fmt(timing['geometry_seconds'])} | "
-            f"{_fmt(timing['neck_detector_seconds'])} | {_fmt(timing['flowfield_total_seconds'])} | "
+            f"{_fmt(timing['neck_detector_seconds'])} | {_fmt(timing['cutoff_phase_seconds'])} | "
+            f"{_fmt(timing['flowfield_total_seconds'])} | "
             f"{_fmt(timing['move_seconds'])} | {_fmt(timing['update_seconds'])} | "
             f"{_fmt(timing['saving_seconds'])} | {timing['cutoff_events']} |"
         )
@@ -413,7 +418,8 @@ def _run_stage(steps: int, output_root: Path) -> tuple[dict[str, Any], bool, Pat
             f"Points removed per cutoff match: **{cutoff_details['points_removed_per_cutoff_match']}**.",
             "",
             f"Speedups (scalar/batched): whole solver {_fmt(speedups['whole_solver'])}x; "
-            f"geometry {_fmt(speedups['geometry'])}x; neck detector {_fmt(speedups['neck_detector'])}x.",
+            f"geometry {_fmt(speedups['geometry'])}x; detector {_fmt(speedups['detector'])}x; "
+            f"full cutoff phase {_fmt(speedups['cutoff_phase'])}x.",
             "",
             "The JSON and CSV files preserve checkpoint arrays, every scalar-history row, all selected detector pairs, and every geometry cutoff event.",
             "",

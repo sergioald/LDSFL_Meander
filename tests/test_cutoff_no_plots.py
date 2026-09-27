@@ -28,6 +28,7 @@ def test_geometry4_does_not_plot_cutoff_when_plots_disabled(monkeypatch, tmp_pat
 
     x = np.linspace(0.0, 9.0, 10)
     y = np.zeros_like(x)
+    timing = {}
 
     geometry.geometry4(
         x,
@@ -41,7 +42,12 @@ def test_geometry4_does_not_plot_cutoff_when_plots_disabled(monkeypatch, tmp_pat
         base_out=tmp_path,
         neck_cutoff_interval=1,
         smoothing_enabled=False,
+        timing=timing,
         do_plots=False,
     )
 
     assert calls["save_cut"] == 1
+    assert timing["geometry_neck_searches"] == calls["find"] == 1
+    assert "geometry_neck_detector" in timing
+    assert "geometry_neck" in timing
+    assert timing["geometry_neck_detector"] <= timing["geometry_neck"]

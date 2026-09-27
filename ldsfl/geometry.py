@@ -116,7 +116,12 @@ def geometry4(
         while True:
             if timing is not None:
                 timing["geometry_neck_searches"] = int(timing.get("geometry_neck_searches", 0) + 1)
+                detector_start = perf_counter()
             hit = find_neck_cutoff_kdtree_with_refine(xa, ya, ss, dslim3)
+            if timing is not None:
+                timing["geometry_neck_detector"] = float(
+                    timing.get("geometry_neck_detector", 0.0) + (perf_counter() - detector_start)
+                )
             if hit is None:
                 break
             if timing is not None:

@@ -57,6 +57,7 @@ GEOMETRY_TIMING_KEYS = (
     "geometry_curvature",
     "geometry_diagnostics",
 )
+GEOMETRY_TIMING_SUBSET_KEYS = ("geometry_neck_detector",)
 
 
 def _json_safe(value: Any) -> Any:
@@ -160,7 +161,7 @@ def _benchmark_callable(
         elapsed_samples.append(time.perf_counter() - started)
         if isinstance(result, dict):
             for key, value in (result.get("timing") or {}).items():
-                if key in GEOMETRY_TIMING_KEYS:
+                if key in (*GEOMETRY_TIMING_KEYS, *GEOMETRY_TIMING_SUBSET_KEYS):
                     component_samples.setdefault(key, []).append(float(value))
                 elif key in (
                     "geometry_calls", "geometry_smoothing_calls", "geometry_resamples",
@@ -361,6 +362,7 @@ def _report(output_dir: Path, baseline: dict[str, Any] | None, scaling: dict[str
             ("coordinate migration (move minus dxdy2)", "coordinate_migration"),
             ("geometry", "geometry"),
             *tuple((key, key) for key in GEOMETRY_TIMING_KEYS),
+            ("geometry_neck_detector (subset of geometry_neck)", "geometry_neck_detector"),
             ("other geometry", "other_geometry"),
             ("update", "update"),
             ("saving", "saving"),
@@ -374,7 +376,7 @@ def _report(output_dir: Path, baseline: dict[str, Any] | None, scaling: dict[str
             "other_geometry": accounting["other_geometry_seconds"],
             "other_wall": accounting["other_wall_seconds"],
         }
-        geometry_keys = set(GEOMETRY_TIMING_KEYS) | {"geometry", "other_geometry"}
+        geometry_keys = set(GEOMETRY_TIMING_KEYS) | set(GEOMETRY_TIMING_SUBSET_KEYS) | {"geometry", "other_geometry"}
         for label, key in display:
             raw = timing_values.get(key)
             if raw is None:
@@ -386,7 +388,7 @@ def _report(output_dir: Path, baseline: dict[str, Any] | None, scaling: dict[str
             lines.append(f"| {label} | {seconds:.6g} | {wall_pct:.2f}% | {geom_text} |")
         lines.extend([
             "",
-            "Geometry component buckets are nonoverlapping. `geometry_initial_uniformization` owns its arclength work; `geometry_arclength` includes only standalone post-cut arclength recomputations. Arclength work inside conditional regridding is charged to `geometry_resample`. `geometry_smoothing` is removed from the resample bucket. Legacy `neck` and `smoothing` remain subset aliases.",
+            "Geometry component buckets are nonoverlapping. `geometry_neck` is the full cutoff/search phase; `geometry_neck_detector` measures only detector calls and is shown as a documented subset of `geometry_neck`, excluded from additive totals and `other_geometry`. `geometry_initial_uniformization` owns its arclength work; `geometry_arclength` includes only standalone post-cut arclength recomputations. Arclength work inside conditional regridding is charged to `geometry_resample`. `geometry_smoothing` is removed from the resample bucket. Legacy `neck` and `smoothing` remain subset aliases.",
             "",
             f"Counts: {counts['geometry_calls']} geometry calls, {counts['neck_detector_calls']} neck searches, "
             f"{counts['cutoff_events']} cutoff events, {counts['smoothing_calls']} smoothing calls, "
