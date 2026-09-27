@@ -361,6 +361,7 @@ def _run_modes_numba(
     s_pad: np.ndarray,
     deltas: float,
     n_workers: int | None,
+    strategy: str = "legacy",
 ) -> np.ndarray:
     """Numba-accelerated mode runner (CPU JIT).
 
@@ -370,6 +371,11 @@ def _run_modes_numba(
     - Avoids allocating the large cA/cB arrays (size N) by using scalar
       coefficients in the cached SEMIANA kernels.
     """
+
+    if strategy not in ("legacy", "recursive"):
+        raise ValueError(f"Unknown internal SEMIANA strategy: {strategy!r}")
+    if strategy == "recursive" and (paral != 0 or numba_parallel or numba_fastmath or not use_cached):
+        raise ValueError("The recursive SEMIANA strategy is available only for the serial cached path")
 
     try:
         from .flowfield_numba import get_mode_adders  # noqa: WPS433 (local import)
@@ -389,9 +395,15 @@ def _run_modes_numba(
         g0s = (g10[jm - 1], g20[jm - 1], g30[jm - 1], g40[jm - 1])
         g1sum = g11[jm - 1] + g21[jm - 1] + g31[jm - 1] + g41[jm - 1]
         if SL == 1:
-            add_sl1(out, jm, Am, lambs, g0s, g1sum, c_pad, s_pad, float(deltas), bool(use_cached), 1e-4)
+            add_sl1(
+                out, jm, Am, lambs, g0s, g1sum, c_pad, s_pad, float(deltas),
+                bool(use_cached), 1e-4, strategy == "recursive",
+            )
         else:
-            add_sl0(out, jm, Am, lambs, g0s, g1sum, c_pad, s_pad, float(deltas), bool(use_cached), 1e-4)
+            add_sl0(
+                out, jm, Am, lambs, g0s, g1sum, c_pad, s_pad, float(deltas),
+                bool(use_cached), 1e-4, strategy == "recursive",
+            )
 
     Ucplot = np.zeros(N + 1, dtype=np.float64)
 
@@ -451,7 +463,9 @@ def parall_u_free(
     Full Parall_U_free with switches:
       SL=0/1, paral=0/1.
 
-    This version uses semiana*_cached (fast).
+    The serial non-fastmath Numba path uses the recursive finite-window
+    response; the legacy cached response remains available for reference and
+    other Numba execution modes.
     """
     flow_start = perf_counter() if timing is not None else 0.0
     mode_timing: dict[str, float] | None = {} if timing is not None else None
@@ -476,6 +490,18 @@ def parall_u_free(
             import warnings
             warnings.warn("Both flow_paral=1 and numba_parallel=True are enabled; this may oversubscribe CPU cores. Consider using only one.",stacklevel=2)
 
+        # The recursive finite-window response is validated for the serial,
+        # cached, non-fastmath SL0/SL1 paths. Keep the legacy implementation
+        # for every other execution mode and available as an internal reference.
+        semiana_strategy = (
+            "recursive"
+            if int(SL) in (0, 1)
+            and int(paral) == 0
+            and not bool(numba_parallel)
+            and not bool(numba_fastmath)
+            else "legacy"
+        )
+
         Ucplot_pad = _run_modes_numba(
             SL=int(SL),
             paral=int(paral),
@@ -499,6 +525,7 @@ def parall_u_free(
             s_pad=s_pad,
             deltas=float(deltas),
             n_workers=n_workers,
+            strategy=semiana_strategy,
         )
     else:
         Ucplot_pad = _run_modes(

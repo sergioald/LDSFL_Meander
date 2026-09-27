@@ -165,6 +165,75 @@ def _fill_dwstr_cached_nb(
 
 
 @njit(cache=False, nogil=True)
+def _fill_upstr_recursive_real_nb(
+    out: np.ndarray,
+    cA: np.ndarray,
+    cB: np.ndarray,
+    lmds: complex,
+    exp_table: np.ndarray,
+    kmax: int,
+    jtoll: int,
+    N: int,
+    coeff: complex,
+) -> None:
+    """Fused SEMIANA1 response with the same finite endpoints and window."""
+    w = exp_table[kmax - 1]
+    leaving_weight = 0.0 + 0.0j
+    if 3 <= jtoll <= N:
+        leaving_weight = exp_table[kmax - (jtoll - 1)]
+    interior = 0.0 + 0.0j
+    for js in range(N - 1, 0, -1):
+        jsend = js + jtoll - 1
+        if jsend > N:
+            jsend = N
+        if jtoll > 2:
+            interior *= w
+            if js + 1 < jsend:
+                interior += cA[js + 1] * w
+            leaving = js + jtoll - 1
+            if leaving < N:
+                interior -= cA[leaving] * leaving_weight
+        conv = cB[js] * (w + lmds - 1.0) + interior
+        conv -= cB[jsend] * (1.0 + lmds - exp_table[kmax + 1]) * exp_table[kmax + (js - jsend)]
+        out[js] += (coeff * conv).real
+
+
+@njit(cache=False, nogil=True)
+def _fill_dwstr_recursive_real_nb(
+    out: np.ndarray,
+    cA: np.ndarray,
+    cB: np.ndarray,
+    lmds: complex,
+    exp_table: np.ndarray,
+    kmax: int,
+    jtoll: int,
+    N: int,
+    coeff: complex,
+) -> None:
+    """Fused SEMIANA2 response with explicit finite-window subtraction."""
+    v = exp_table[kmax + 1]
+    leaving_weight = 0.0 + 0.0j
+    if 3 <= jtoll <= N:
+        leaving_weight = exp_table[kmax + jtoll - 1]
+    interior = 0.0 + 0.0j
+    for js in range(2, N + 1):
+        jsend = js - jtoll + 1
+        if jsend < 1:
+            jsend = 1
+        if jtoll > 2:
+            interior *= v
+            if js - 1 > jsend:
+                interior += cA[js - 1] * v
+            leaving = js - jtoll + 1
+            if leaving > 1:
+                interior -= cA[leaving] * leaving_weight
+        conv = cB[jsend] * (-1.0 + lmds + exp_table[kmax - 1]) * exp_table[kmax + (js - jsend)]
+        conv += interior
+        conv -= cB[js] * (1.0 + lmds - v)
+        out[js] += (coeff * conv).real
+
+
+@njit(cache=False, nogil=True)
 def _fill_upstr_direct_nb(
     out: np.ndarray,
     c_pad: np.ndarray,
@@ -400,7 +469,13 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
         deltas: float,
         use_cached: bool,
         toll: float,
+        recursive: bool = False,
     ) -> None:
+        if recursive and (key[0] or key[1] or not use_cached):
+            raise ValueError(
+                "recursive SEMIANA requires parallel=False, fastmath=False, and use_cached=True"
+            )
+
         N = int(len(c_pad) - 1)
         Aj = float(Am[jm - 1])
         mode_scale = 2.0 * (1.0 if ((jm - 1) % 2 == 0) else -1.0)
@@ -423,7 +498,10 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
                     cA, cB, lmds, exp_table, kmax = _cached_tables_for_lam_np(
                         lam, c_pad, deltas, kmax, allow_pos_k=False
                     )
-                    fill_upstr_cached_real(out, cA, cB, lmds, exp_table, kmax, jtoll, N, coeff)
+                    if recursive:
+                        _fill_upstr_recursive_real_nb(out, cA, cB, lmds, exp_table, kmax, jtoll, N, coeff)
+                    else:
+                        fill_upstr_cached_real(out, cA, cB, lmds, exp_table, kmax, jtoll, N, coeff)
                 else:
                     fill_upstr_direct_real(out, c_pad, float(deltas), lam, jtoll, N, coeff)
 
@@ -440,7 +518,10 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
                     cA, cB, lmds, exp_table, kmax = _cached_tables_for_lam_np(
                         lam, c_pad, deltas, kmax, allow_pos_k=True
                     )
-                    fill_dwstr_cached_real(out, cA, cB, lmds, exp_table, kmax, jtoll, N, coeff)
+                    if recursive:
+                        _fill_dwstr_recursive_real_nb(out, cA, cB, lmds, exp_table, kmax, jtoll, N, coeff)
+                    else:
+                        fill_dwstr_cached_real(out, cA, cB, lmds, exp_table, kmax, jtoll, N, coeff)
                 else:
                     fill_dwstr_direct_real(out, c_pad, float(deltas), lam, jtoll, N, coeff)
 
@@ -459,10 +540,18 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
         deltas: float,
         use_cached: bool,
         toll: float,
+        recursive: bool = False,
     ) -> None:
+        if recursive and (key[0] or key[1] or not use_cached):
+            raise ValueError(
+                "recursive SEMIANA requires parallel=False, fastmath=False, and use_cached=True"
+            )
+
         N = int(len(c_pad) - 1)
         Aj = float(Am[jm - 1])
         mode_scale = 2.0 * (1.0 if ((jm - 1) % 2 == 0) else -1.0)
+        fill_upstr_response = _fill_upstr_recursive_real_nb if recursive else fill_upstr_cached_real
+        fill_dwstr_response = _fill_dwstr_recursive_real_nb if recursive else fill_dwstr_cached_real
 
         lm1, lm2, lm3, lm4 = lambs
         g10jm, g20jm, g30jm, g40jm = g0s
@@ -493,21 +582,21 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
                 # lm1 (allow_pos_k False)
                 kmax1 = max(1, min(N, j1toll - 1))
                 cA1, cB1, lmds1, exp1, kmax1 = _cached_tables_for_lam_np(lm1, c_pad, deltas, kmax1, allow_pos_k=False)
-                fill_upstr_cached_real(out, cA1, cB1, lmds1, exp1, kmax1, j1toll, N, complex(mode_scale * (-Aj), 0.0) * g10jm)
+                fill_upstr_response(out, cA1, cB1, lmds1, exp1, kmax1, j1toll, N, complex(mode_scale * (-Aj), 0.0) * g10jm)
 
                 # lm2/lm3 in the reference use allow_pos_k True
                 kmax2 = max(1, min(N, j2toll - 1))
                 cA2, cB2, lmds2, exp2, kmax2 = _cached_tables_for_lam_np(lm2, c_pad, deltas, kmax2, allow_pos_k=True)
-                fill_dwstr_cached_real(out, cA2, cB2, lmds2, exp2, kmax2, j2toll, N, complex(mode_scale * Aj, 0.0) * g20jm)
+                fill_dwstr_response(out, cA2, cB2, lmds2, exp2, kmax2, j2toll, N, complex(mode_scale * Aj, 0.0) * g20jm)
 
                 kmax3 = max(1, min(N, j3toll - 1))
                 cA3, cB3, lmds3, exp3, kmax3 = _cached_tables_for_lam_np(lm3, c_pad, deltas, kmax3, allow_pos_k=True)
-                fill_dwstr_cached_real(out, cA3, cB3, lmds3, exp3, kmax3, j3toll, N, complex(mode_scale * Aj, 0.0) * g30jm)
+                fill_dwstr_response(out, cA3, cB3, lmds3, exp3, kmax3, j3toll, N, complex(mode_scale * Aj, 0.0) * g30jm)
 
                 # um2: +Am*g40*sum4 using SEMIANA2
                 kmax4 = max(1, min(N, j4toll - 1))
                 cA4, cB4, lmds4, exp4, kmax4 = _cached_tables_for_lam_np(lm4, c_pad, deltas, kmax4, allow_pos_k=True)
-                fill_dwstr_cached_real(out, cA4, cB4, lmds4, exp4, kmax4, j4toll, N, complex(mode_scale * Aj, 0.0) * g40jm)
+                fill_dwstr_response(out, cA4, cB4, lmds4, exp4, kmax4, j4toll, N, complex(mode_scale * Aj, 0.0) * g40jm)
             else:
                 fill_upstr_direct_real(out, c_pad, float(deltas), lm1, j1toll, N, complex(mode_scale * (-Aj), 0.0) * g10jm)
                 fill_dwstr_direct_real(out, c_pad, float(deltas), lm2, j2toll, N, complex(mode_scale * Aj, 0.0) * g20jm)
@@ -523,19 +612,19 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
             if use_cached:
                 kmax1 = max(1, min(N, j1toll - 1))
                 cA1, cB1, lmds1, exp1, kmax1 = _cached_tables_for_lam_np(lm1, c_pad, deltas, kmax1, allow_pos_k=False)
-                fill_upstr_cached_real(out, cA1, cB1, lmds1, exp1, kmax1, j1toll, N, complex(mode_scale * (-Aj), 0.0) * g10jm)
+                fill_upstr_response(out, cA1, cB1, lmds1, exp1, kmax1, j1toll, N, complex(mode_scale * (-Aj), 0.0) * g10jm)
 
                 kmax2 = max(1, min(N, j2toll - 1))
                 cA2, cB2, lmds2, exp2, kmax2 = _cached_tables_for_lam_np(lm2, c_pad, deltas, kmax2, allow_pos_k=False)
-                fill_upstr_cached_real(out, cA2, cB2, lmds2, exp2, kmax2, j2toll, N, complex(mode_scale * (-Aj), 0.0) * g20jm)
+                fill_upstr_response(out, cA2, cB2, lmds2, exp2, kmax2, j2toll, N, complex(mode_scale * (-Aj), 0.0) * g20jm)
 
                 kmax3 = max(1, min(N, j3toll - 1))
                 cA3, cB3, lmds3, exp3, kmax3 = _cached_tables_for_lam_np(lm3, c_pad, deltas, kmax3, allow_pos_k=False)
-                fill_upstr_cached_real(out, cA3, cB3, lmds3, exp3, kmax3, j3toll, N, complex(mode_scale * (-Aj), 0.0) * g30jm)
+                fill_upstr_response(out, cA3, cB3, lmds3, exp3, kmax3, j3toll, N, complex(mode_scale * (-Aj), 0.0) * g30jm)
 
                 kmax4 = max(1, min(N, j4toll - 1))
                 cA4, cB4, lmds4, exp4, kmax4 = _cached_tables_for_lam_np(lm4, c_pad, deltas, kmax4, allow_pos_k=True)
-                fill_dwstr_cached_real(out, cA4, cB4, lmds4, exp4, kmax4, j4toll, N, complex(mode_scale * Aj, 0.0) * g40jm)
+                fill_dwstr_response(out, cA4, cB4, lmds4, exp4, kmax4, j4toll, N, complex(mode_scale * Aj, 0.0) * g40jm)
             else:
                 fill_upstr_direct_real(out, c_pad, float(deltas), lm1, j1toll, N, complex(mode_scale * (-Aj), 0.0) * g10jm)
                 fill_upstr_direct_real(out, c_pad, float(deltas), lm2, j2toll, N, complex(mode_scale * (-Aj), 0.0) * g20jm)
@@ -544,7 +633,7 @@ def get_mode_functions(*, parallel: bool = False, fastmath: bool = False):
 
         else:
             # borderline resonance: fall back to SL0 behavior
-            add_mode_sl0(out, jm, Am, lambs, g0s, g1sum, c_pad, s_pad, deltas, use_cached, toll)
+            add_mode_sl0(out, jm, Am, lambs, g0s, g1sum, c_pad, s_pad, deltas, use_cached, toll, recursive)
             return
 
         local_coeff = (complex(mode_scale * Aj, 0.0) * g1sum).real
