@@ -6,8 +6,10 @@ from scipy.interpolate import CubicSpline
 from scipy.signal import savgol_filter
 from scipy.spatial import cKDTree
 
+_NECK_QUERY_BATCH_SIZE = 32
 
-def _kdtree_first_hit_point_pair(x, y, ss, dslim3, *, workers: int = 1):
+
+def _kdtree_first_hit_point_pair_scalar(x, y, ss, dslim3, *, workers: int = 1):
     """Return (i, j) 0-based point indices using KDTree, or None.
 
     This is an **early-exit** variant.
@@ -61,6 +63,93 @@ def _kdtree_first_hit_point_pair(x, y, ss, dslim3, *, workers: int = 1):
         return int(i), j
 
     return None
+
+
+def _kdtree_first_hit_point_pair_batched(
+    x,
+    y,
+    ss,
+    dslim3,
+    *,
+    workers: int = 1,
+    batch_size: int = _NECK_QUERY_BATCH_SIZE,
+):
+    """Return the scalar detector's first hit using bounded batched queries.
+
+    Queries are issued in consecutive, bounded index ranges. Results are then
+    examined in increasing original ``i`` order, with the same eligible-j
+    domain, strict radius test, closest-distance choice, and smallest-j tie
+    break as :func:`_kdtree_first_hit_point_pair_scalar`.
+    """
+    batch_size = int(batch_size)
+    if batch_size <= 0:
+        raise ValueError("batch_size must be positive")
+
+    n = x.size
+    end = n - ss - 1
+    if n < 4 or ss <= 0 or end <= 1:
+        return None
+
+    pts = np.empty((n, 2), dtype=np.float64)
+    pts[:, 0] = x
+    pts[:, 1] = y
+    tree = cKDTree(pts)
+    r = float(dslim3)
+    r2 = r * r
+
+    batch_start = 0
+    while batch_start <= end:
+        # The earliest index is common on an immediate hit and deserves no
+        # speculative queries for later points. After that first exact check,
+        # use fixed-size bounded ranges for the remaining left-to-right scan.
+        current_batch_size = 1 if batch_start == 0 else batch_size
+        batch_stop = min(batch_start + current_batch_size, end + 1)
+        batch_points = pts[batch_start:batch_stop]
+        try:
+            neighborhoods = tree.query_ball_point(
+                batch_points,
+                r,
+                workers=workers,
+                return_sorted=False,
+            )
+        except TypeError as exc:
+            if "return_sorted" not in str(exc):
+                raise
+            neighborhoods = tree.query_ball_point(batch_points, r, workers=workers)
+
+        for offset, neigh in enumerate(neighborhoods):
+            i = batch_start + offset
+            if not neigh:
+                continue
+
+            cand = [j for j in neigh if (j >= i + ss) and (j <= end)]
+            if not cand:
+                continue
+
+            cand_j = np.asarray(cand, dtype=np.int64)
+            dx = x[i] - x[cand_j]
+            dy = y[i] - y[cand_j]
+            d2 = dx * dx + dy * dy
+            within = d2 < r2
+            if not np.any(within):
+                continue
+
+            within_j = cand_j[within]
+            within_d2 = d2[within]
+            d2_min = float(within_d2.min())
+            j = int(within_j[within_d2 == d2_min].min())
+            return int(i), j
+
+        batch_start = batch_stop
+
+    return None
+
+
+def _kdtree_first_hit_point_pair(x, y, ss, dslim3, *, workers: int = 1):
+    """Use bounded batched queries for the production point-pair detector."""
+    return _kdtree_first_hit_point_pair_batched(
+        x, y, ss, dslim3, workers=workers, batch_size=_NECK_QUERY_BATCH_SIZE
+    )
 
 
 def _refine_long_segments_linear(x, y, ds_target):

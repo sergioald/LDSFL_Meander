@@ -444,6 +444,24 @@ def _run_one(
         geometry_module.save_xy_cut = originals["save_xy_cut"]
 
     timings = (run_result or {}).get("timings") or {}
+    geometry_timing_keys = (
+        "geometry_arclength",
+        "geometry_initial_uniformization",
+        "geometry_neck",
+        "geometry_smoothing",
+        "geometry_resample",
+        "geometry_curvature",
+        "geometry_diagnostics",
+    )
+    geometry_subcomponents = sum(float(timings.get(key, 0.0) or 0.0) for key in geometry_timing_keys)
+    geometry_seconds = float(timings.get("geometry", 0.0) or 0.0)
+    flowfield_total_seconds = timings.get("flowfield_total")
+    flowfield_total_seconds = float(flowfield_total_seconds) if flowfield_total_seconds is not None else 0.0
+    move_seconds = float(timings.get("move", 0.0) or 0.0)
+    update_seconds = float(timings.get("update", 0.0) or 0.0)
+    saving_seconds = float(timings.get("saving", 0.0) or 0.0)
+    other_geometry_seconds = geometry_seconds - geometry_subcomponents
+    other_wall_seconds = wall_seconds - flowfield_total_seconds - move_seconds - geometry_seconds - update_seconds - saving_seconds
     if recorder.completed in recorder.checkpoints and recorder.completed not in recorder.checkpoint_states:
         recorder.checkpoint_states[recorder.completed] = _checkpoint_record(recorder.state)
     for _step, snapshot in recorder.checkpoint_states.items():
@@ -482,9 +500,32 @@ def _run_one(
             key: timings.get(key)
             for key in (
                 "flowfield_loop", "flowfield_final", "flowfield_total", "vertical_coefficients",
-                "modal_coefficients", "semiana_response", "move", "geometry", "update", "saving",
+                "modal_coefficients", "semiana_response", "move", "dxdy2", "coordinate_migration",
+                "geometry", "geometry_arclength", "geometry_initial_uniformization", "geometry_neck",
+                "geometry_neck_detector",
+                "geometry_smoothing", "geometry_resample", "geometry_curvature", "geometry_diagnostics",
+                "update", "saving",
             )
         },
+        "geometry_timing_accounting": {
+            "other_geometry_seconds": float(other_geometry_seconds),
+            "other_wall_seconds": float(other_wall_seconds),
+            "geometry_subcomponents_seconds": float(geometry_subcomponents),
+            "geometry_subcomponent_buckets_are_non_overlapping": True,
+            "geometry_neck_is_full_cutoff_search_phase": True,
+            "geometry_neck_detector_is_subset_of_geometry_neck": True,
+            "geometry_neck_detector_is_excluded_from_additive_geometry_accounting": True,
+            "legacy_neck_is_subset_alias_of_geometry_neck": True,
+            "legacy_smoothing_is_subset_alias_of_geometry_smoothing": True,
+        },
+        "geometry_counts": {
+            "geometry_calls": int(timings.get("geometry_calls", 0) or 0),
+            "smoothing_calls": int(timings.get("geometry_smoothing_calls", 0) or 0),
+            "spacing_resamples": int(timings.get("geometry_resamples", 0) or 0),
+            "neck_detector_calls": int(timings.get("geometry_neck_searches", 0) or 0),
+            "cutoff_events": int(timings.get("geometry_cutoff_events", 0) or 0),
+        },
+        "dxdy2_seconds": float(timings.get("dxdy2", 0.0) or 0.0),
         "k0123_cache_hits": int(recorder.cache_hits),
         "k0123_cache_misses": int(recorder.cache_misses),
         "k0123_cache_final": recorder.cache_final,
@@ -761,6 +802,72 @@ def _summary_report(summary: dict[str, Any]) -> str:
                 vertical=run["vertical_coefficient_seconds_all_flow_calls"], hits=run["k0123_cache_hits"],
                 misses=run["k0123_cache_misses"], cutoffs=run["number_of_cutoffs"],
             )
+        )
+    timing_components = (
+        ("flowfield_loop", "flowfield_loop_seconds", False),
+        ("flowfield_final", "flowfield_final_seconds", False),
+        ("flowfield_total", "flowfield_total_seconds", False),
+        ("vertical_coefficients", "vertical_coefficient_seconds_all_flow_calls", False),
+        ("modal_coefficients", "modal_coefficient_seconds_all_flow_calls", False),
+        ("semiana_response", "semiana_response_seconds_all_flow_calls", False),
+        ("move", "move", False),
+        ("dxdy2 (subset of move)", "dxdy2", False),
+        ("coordinate migration (move minus dxdy2)", "coordinate_migration", False),
+        ("geometry", "geometry", True),
+        ("geometry_arclength", "geometry_arclength", True),
+        ("geometry_initial_uniformization", "geometry_initial_uniformization", True),
+        ("geometry_neck", "geometry_neck", True),
+        ("geometry_neck_detector (subset of geometry_neck)", "geometry_neck_detector", True),
+        ("geometry_smoothing", "geometry_smoothing", True),
+        ("geometry_resample", "geometry_resample", True),
+        ("geometry_curvature", "geometry_curvature", True),
+        ("geometry_diagnostics", "geometry_diagnostics", True),
+        ("other_geometry", "other_geometry", True),
+        ("update", "update", False),
+        ("saving", "saving", False),
+        ("other_wall", "other_wall", False),
+    )
+    lines.extend([
+        "",
+        "## Timing breakdown",
+        "",
+        "`dxdy2` is a subset of `move`. `geometry_neck` is the full cutoff/search phase, while `geometry_neck_detector` measures only time inside detector calls and is a subset of `geometry_neck`; the detector subset is excluded from additive geometry accounting. Geometry component buckets used for `other_geometry` are mutually exclusive; `other_geometry` is the remaining measured geometry time. Initial-uniformization arclength is charged there, standalone post-cut arclength recomputations to `geometry_arclength`, and spacing-path arclength to `geometry_resample`. Legacy `neck` and `smoothing` fields are aliases of subsets and are excluded from additive totals.",
+        "",
+        "| Run | Component | Seconds | % wall | % geometry |",
+        "|---|---|---:|---:|---:|",
+    ])
+    for run in (reference, candidate):
+        components = run.get("solver_component_timings", {})
+        geometry_accounting = run.get("geometry_timing_accounting", {})
+        wall = float(run.get("total_wall_seconds", 0.0) or 0.0)
+        geometry = float(components.get("geometry", 0.0) or 0.0)
+        values = {
+            **components,
+            "vertical_coefficient_seconds_all_flow_calls": run.get("vertical_coefficient_seconds_all_flow_calls"),
+            "modal_coefficient_seconds_all_flow_calls": run.get("modal_coefficient_seconds_all_flow_calls"),
+            "semiana_response_seconds_all_flow_calls": run.get("semiana_response_seconds_all_flow_calls"),
+            "other_geometry": geometry_accounting.get("other_geometry_seconds"),
+            "other_wall": geometry_accounting.get("other_wall_seconds"),
+        }
+        for label, key, is_geometry in timing_components:
+            value = values.get(key)
+            if value is None:
+                continue
+            seconds = float(value)
+            wall_percent = 100.0 * seconds / wall if wall > 0.0 else 0.0
+            geometry_percent = 100.0 * seconds / geometry if is_geometry and geometry > 0.0 else None
+            lines.append(
+                f"| {run['label']} | {label} | {seconds:.6g} | {wall_percent:.2f}% | "
+                f"{geometry_percent:.2f}% |" if geometry_percent is not None else
+                f"| {run['label']} | {label} | {seconds:.6g} | {wall_percent:.2f}% | n/a |"
+            )
+    lines.extend(["", "Geometry operation counts", ""])
+    for run in (reference, candidate):
+        counts = run.get("geometry_counts", {})
+        lines.append(
+            f"- {run['label']}: {counts.get('geometry_calls', 0)} geometry calls, "
+            f"{counts.get('neck_detector_calls', 0)} neck searches, {counts.get('cutoff_events', 0)} cutoff events, "
+            f"{counts.get('smoothing_calls', 0)} smoothing calls, {counts.get('spacing_resamples', 0)} spacing resamples."
         )
     lines.extend(["", "## Parity findings", ""])
     lines.append(f"Cutoff comparison: `{json.dumps(summary['cutoff_comparison'], sort_keys=True)}`")
