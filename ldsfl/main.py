@@ -612,9 +612,23 @@ def run_case(
             "modal_coefficients": 0.0,
             "semiana_response": 0.0,
             "move": 0.0,
+            "dxdy2": 0.0,
+            "coordinate_migration": 0.0,
             "geometry": 0.0,
+            "geometry_arclength": 0.0,
+            "geometry_initial_uniformization": 0.0,
+            "geometry_neck": 0.0,
+            "geometry_smoothing": 0.0,
+            "geometry_resample": 0.0,
+            "geometry_curvature": 0.0,
+            "geometry_diagnostics": 0.0,
             "smoothing": 0.0,
             "neck": 0.0,
+            "geometry_calls": 0,
+            "geometry_smoothing_calls": 0,
+            "geometry_resamples": 0,
+            "geometry_neck_searches": 0,
+            "geometry_cutoff_events": 0,
             "update": 0.0,
             "saving": 0.0,
         }
@@ -755,7 +769,11 @@ def run_case(
                     tim["saving"] += float(perf_counter() - t0s)
 
             t0 = perf_counter() if tim is not None else None
+            t_dxdy0 = perf_counter() if tim is not None else None
             dxdtl, dydtl, dt = dxdy2(ER, U, x, y, th, deltas, Nsold, Ns, jt, cstab=float(cstab))
+            if tim is not None and t_dxdy0 is not None:
+                dxdy_seconds = perf_counter() - t_dxdy0
+                tim["dxdy2"] += float(dxdy_seconds)
             if Nsold == Ns:
                 x += (0.5 * (dxdtl + dxdtl_old)) * dt
                 y += (0.5 * (dydtl + dydtl_old)) * dt
@@ -763,7 +781,9 @@ def run_case(
                 x += dxdtl * dt
                 y += dydtl * dt
             if tim is not None and t0 is not None:
-                tim["move"] += float(perf_counter() - t0)
+                move_seconds = perf_counter() - t0
+                tim["move"] += float(move_seconds)
+                tim["coordinate_migration"] += float(max(0.0, move_seconds - dxdy_seconds))
 
             dxdtl_old = dxdtl
             dydtl_old = dydtl
@@ -800,6 +820,24 @@ def run_case(
                 tim["geometry"] += float(perf_counter() - t0g)
                 tim["smoothing"] += float((geom_sub or {}).get("smoothing", 0.0))
                 tim["neck"] += float((geom_sub or {}).get("neck", 0.0))
+                for key in (
+                    "geometry_arclength",
+                    "geometry_initial_uniformization",
+                    "geometry_neck",
+                    "geometry_smoothing",
+                    "geometry_resample",
+                    "geometry_curvature",
+                    "geometry_diagnostics",
+                ):
+                    tim[key] += float((geom_sub or {}).get(key, 0.0))
+                for key in (
+                    "geometry_calls",
+                    "geometry_smoothing_calls",
+                    "geometry_resamples",
+                    "geometry_neck_searches",
+                    "geometry_cutoff_events",
+                ):
+                    tim[key] += int((geom_sub or {}).get(key, 0))
 
             t0u = perf_counter() if tim is not None else None
             rpic, Cf0, CT, CD, phiT, phiD, F0 = resistance_function_flagbed(flagbed, theta0, ds, rpic_0)
@@ -873,6 +911,7 @@ def run_case(
     # Required numerical outputs are finalized independently so one failure
     # does not prevent attempts to write the remaining artifacts.
     output_errors: list[str] = []
+    final_saving_start = None
     try:
         final_flow_start = perf_counter() if tim is not None else None
         try:
@@ -906,6 +945,7 @@ def run_case(
             if tim is not None and final_flow_start is not None:
                 tim["flowfield_final"] += float(perf_counter() - final_flow_start)
                 tim["flowfield_total"] = tim["flowfield_loop"] + tim["flowfield_final"]
+        final_saving_start = perf_counter() if tim is not None else None
         save_xystcu(
             out_dir,
             x,
@@ -993,6 +1033,8 @@ def run_case(
         )
     except Exception as exc:
         warnings.warn(f"run_status.json could not be saved: {exc}", RuntimeWarning, stacklevel=2)
+    if tim is not None and final_saving_start is not None:
+        tim["saving"] += float(perf_counter() - final_saving_start)
 
     if output_errors:
         raise RuntimeError("Required output finalization failed: " + "; ".join(output_errors))
