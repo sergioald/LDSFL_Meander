@@ -351,6 +351,9 @@ class RunRecorder:
                 "cut_cnt": cut_cnt,
                 "Ns_before": int(xa.size),
                 "Ns_after": int(x_after.size),
+                "selected_pair_i0": i1 - 1,
+                "selected_pair_j0": (i1 - 1) + ss + aa - 1,
+                "points_removed": int(xa.size - x_after.size),
                 "Ns_after_geometry": None,
                 "sinuosity_before": _sinuosity_xy(xa, ya),
                 "sinuosity_after_cut": _sinuosity_xy(x_after, y_after),
@@ -384,6 +387,7 @@ def _run_one(
     checkpoints: set[int],
     flow_backend: str,
     vertical_backend: str,
+    geometry_unwrap_backend: str = "python",
     progress_every: int,
 ) -> dict[str, Any]:
     initial, input_hashes = _initial_case(case)
@@ -409,6 +413,7 @@ def _run_one(
 
     run_result = None
     run_error = None
+    run_config_options: dict[str, Any] = {}
     wall_start = time.perf_counter()
     try:
         with tempfile.TemporaryDirectory(prefix=f"ldsfl-long-parity-{label}-") as temp_name:
@@ -421,6 +426,7 @@ def _run_one(
                 case,
                 Nprint=steps + 2,
                 flow_backend=flow_backend,
+                geometry_unwrap_backend=geometry_unwrap_backend,
                 numba_parallel=False,
                 numba_fastmath=False,
                 max_steps=steps,
@@ -428,6 +434,8 @@ def _run_one(
                 do_plots=False,
                 collect_timing=True,
             )
+            run_config_path = project_dir / "Output" / run_result["id_files"] / "run_config.json"
+            run_config_options = json.loads(run_config_path.read_text(encoding="utf-8")).get("options", {})
     except Exception as exc:
         run_error = {
             "type": type(exc).__name__,
@@ -486,6 +494,8 @@ def _run_one(
         "label": label,
         "flow_backend": flow_backend,
         "vertical_backend": vertical_backend,
+        "geometry_unwrap_backend": geometry_unwrap_backend,
+        "run_config_options": run_config_options,
         "input_sha256": input_hashes,
         "warmup_flowfield_seconds": float(warm_seconds),
         "total_wall_seconds": float(wall_seconds),

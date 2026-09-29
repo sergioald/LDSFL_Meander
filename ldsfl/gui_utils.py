@@ -203,6 +203,7 @@ class RunControls:
     output_units: OutputUnits = "dimensionless"
     flow_bc: str = "free"
     backend: str = "numpy"
+    geometry_unwrap_backend: str = "python"
     flow_paral: int = 0
     flow_workers: int = 0
     numba_parallel: bool = False
@@ -461,6 +462,7 @@ def preview_case_config(config: GuiCaseConfig) -> dict:
         "neck_cutoff_interval": int(config.geometry.neck_cutoff_interval),
         "resample_upper_factor": float(config.geometry.resample_upper_factor),
         "resample_lower_factor": float(config.geometry.resample_lower_factor),
+        "geometry_unwrap_backend": str(config.run.geometry_unwrap_backend),
         "cstab": float(config.run.cstab),
         "erosion_rate": float(config.run.erosion_rate),
         "sinuo_window": int(config.run.sinuo_window),
@@ -522,6 +524,7 @@ def validate_case_config(config: GuiCaseConfig) -> list[str]:
         flow_paral=config.run.flow_paral,
         flow_workers=config.run.flow_workers,
         flow_backend=config.run.backend,
+        geometry_unwrap_backend=config.run.geometry_unwrap_backend,
         output_units=config.run.output_units,
         output_length_scale=scales["output_length_scale"],
         output_velocity_scale=scales["output_velocity_scale"],

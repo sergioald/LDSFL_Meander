@@ -178,6 +178,16 @@ def main() -> None:
         ),
     )
     ap.add_argument(
+        "--geometry-unwrap-backend",
+        choices=["python", "numba"],
+        default="python",
+        help=(
+            "Curvature-angle unwrap backend. Python is the reference/default; "
+            "Numba is an optional exact JIT-accelerated path and requires the numba extra. "
+            "This is independent of --backend."
+        ),
+    )
+    ap.add_argument(
         "--numba-parallel",
         type=int,
         default=0,
@@ -237,6 +247,7 @@ def main() -> None:
         flow_paral=args.flow_paral,
         flow_workers=args.flow_workers,
         flow_backend=args.backend,
+        geometry_unwrap_backend=args.geometry_unwrap_backend,
         numba_parallel=bool(args.numba_parallel),
         numba_fastmath=bool(args.numba_fastmath),
     )

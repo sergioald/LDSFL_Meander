@@ -51,7 +51,8 @@ The GUI can:
 
 The GUI exposes advanced controls for:
 
-- backend selection (`numpy` or `numba`)
+- flow-field backend selection (`numpy` or `numba`)
+- independent curvature unwrap backend (`python` or optional `numba`)
 - boundary condition (`free` or `periodic`)
 - `cstab`
 - bank erodibility / erosion rate
@@ -85,6 +86,24 @@ The run summary also reports a resonance diagnostic containing the current
 state, the estimated resonant aspect ratio, relative distance to resonance, and
 the fundamental decay rate. Treat this as a reduced-model interpretation aid,
 not as independent physical validation.
+
+### Flow solver and curvature unwrap backends
+
+The flow-field backend and the curvature-angle unwrap backend are separate
+controls. The geometry unwrap defaults to **Python**, which is the reference
+implementation. The optional **Numba** geometry unwrap is bitwise exact for the
+tested solver case and path, requires the `numba` extra, and may incur JIT
+compilation on first use. Installing Numba does not change the default.
+
+The CLI option is `--geometry-unwrap-backend python|numba`; it is independent
+of `--backend`, which continues to select the flow-field solver. For example,
+NumPy flow can be combined with the Numba geometry unwrap, or Numba flow can be
+combined with the Python reference unwrap. The selected geometry backend is
+stored in `run_config.json`.
+
+In the validated 5,000-step case-1 benchmark on the development machine, the
+median paired whole-solver speedup was approximately 1.09x across five pairs.
+This is machine- and workload-specific evidence, not a universal speedup.
 
 ## 7. Outputs
 

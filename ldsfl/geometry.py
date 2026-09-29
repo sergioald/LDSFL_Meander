@@ -15,6 +15,42 @@ from .mathutils import (
 from .outputs import plot_cut, save_xy_cut
 
 
+def _normalize_unwrap_backend(backend: str) -> str:
+    selected = str(backend).lower()
+    if selected not in {"python", "numba"}:
+        raise ValueError(
+            "geometry_unwrap_backend must be one of: numba, python"
+        )
+    return selected
+
+
+def _load_numba_unwrap():
+    try:
+        from .geometry_numba import unwrap_angles_like_matlab_numba
+    except ModuleNotFoundError as exc:
+        if exc.name == "numba":
+            raise RuntimeError(
+                "geometry_unwrap_backend='numba' requires the optional Numba "
+                "dependency; install with .[numba]"
+            ) from exc
+        raise
+    return unwrap_angles_like_matlab_numba
+
+
+def ensure_geometry_unwrap_backend_available(backend: str) -> str:
+    """Normalize a geometry backend and import its optional kernel if needed."""
+    selected, _ = _resolve_geometry_unwrap_backend(backend)
+    return selected
+
+
+def _resolve_geometry_unwrap_backend(backend: str):
+    """Resolve a backend and its callable once for the current geometry call."""
+    selected = _normalize_unwrap_backend(backend)
+    if selected == "numba":
+        return selected, _load_numba_unwrap()
+    return selected, unwrap_angles_like_matlab
+
+
 def _maybe_smooth_xy(
     xa: np.ndarray,
     ya: np.ndarray,
@@ -74,8 +110,14 @@ def geometry4(
     output_units: str = "dimensionless",
     output_length_scale: float = 1.0,
     do_plots: bool = True,
+    unwrap_backend: str = "python",
 ):
-    """Geometry processing, resampling, smoothing, and cutoff detection."""
+    """Process geometry and detect cutoffs.
+
+    ``unwrap_backend`` selects the curvature-angle implementation: ``python``
+    is the reference default, while ``numba`` uses the optional exact JIT path.
+    """
+    _, unwrap_angles = _resolve_geometry_unwrap_backend(unwrap_backend)
     dslim = dsliminicial * float(dslim_upper_factor)
     dslim2 = dsliminicial * float(dslim_lower_factor)
     dslim3 = beta
@@ -230,7 +272,7 @@ def geometry4(
     dxg = matlab_gradient(xa)
     dyg = matlab_gradient(ya)
     theta_raw = np.arctan2(dyg, dxg)
-    theta = unwrap_angles_like_matlab(theta_raw)
+    theta = unwrap_angles(theta_raw)
     theta = -1.0 * theta
 
     # Curvature is dtheta/ds, but ``matlab_gradient`` differentiates with respect
