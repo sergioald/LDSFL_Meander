@@ -347,7 +347,6 @@ def run_case(
     flow_paral=0,
     flow_workers=0,
     flow_backend: str = "numpy",
-    geometry_unwrap_backend: str = "python",
     numba_parallel: bool = False,
     numba_fastmath: bool = False,
     max_steps: int | None = None,
@@ -380,6 +379,7 @@ def run_case(
     return_equivalence_stability: bool = False,
     stop_requested_callback=None,
     run_started_callback=None,
+    geometry_unwrap_backend: str = "python",
 ):
     """Run one LDSFL-Meander case using the prepared Input/ files."""
     # Capture the supplied options before local solver state is introduced.

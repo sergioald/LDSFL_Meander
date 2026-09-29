@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+import inspect
 import json
 import shutil
 import sys
@@ -32,6 +33,57 @@ def _numba_unwrap():
     from ldsfl.geometry_numba import unwrap_angles_like_matlab_numba
 
     return unwrap_angles_like_matlab_numba
+
+
+def test_run_case_preserves_legacy_positional_parameter_order():
+    expected_legacy_order = (
+        "base_dir",
+        "case_i",
+        "Nprint",
+        "Ntstep",
+        "Max_Cut",
+        "dsliminicial",
+        "ER",
+        "flow_bc",
+        "flow_paral",
+        "flow_workers",
+        "flow_backend",
+        "numba_parallel",
+        "numba_fastmath",
+        "max_steps",
+        "max_sim_time",
+        "stop_on_steps",
+        "stop_on_time",
+        "stop_on_cutoffs",
+        "stop_on_sinuosity_stability",
+        "stop_mode",
+        "cstab",
+        "geometry_smoothing_enabled",
+        "geometry_smoothing_factor",
+        "neck_cutoff_interval",
+        "resample_upper_factor",
+        "resample_lower_factor",
+        "do_plots",
+        "collect_timing",
+        "output_units",
+        "output_length_scale",
+        "output_velocity_scale",
+        "sinuo_window",
+        "sinuo_rel_tol",
+        "sinuo_equiv_transient_step",
+        "sinuo_equiv_drift_tol",
+        "sinuo_equiv_confidence",
+        "sinuo_equiv_min_points",
+        "sinuo_equiv_hac_lags",
+        "sinuo_equiv_method",
+        "sinuo_stability_interval",
+        "return_equivalence_stability",
+        "stop_requested_callback",
+        "run_started_callback",
+    )
+    actual_order = tuple(inspect.signature(run_case).parameters)
+    assert actual_order[:-1] == expected_legacy_order
+    assert actual_order[-1] == "geometry_unwrap_backend"
 
 
 def _same_exact(left, right) -> bool:
@@ -180,6 +232,40 @@ def test_requested_numba_without_dependency_fails_before_run_io(tmp_path, monkey
     with pytest.raises(RuntimeError, match="geometry_unwrap_backend='numba'.*optional Numba"):
         run_case(tmp_path, 1, geometry_unwrap_backend="numba")
     assert not (tmp_path / "Output").exists()
+
+
+def test_geometry4_numba_without_dependency_fails_before_processing_or_output(
+    tmp_path, monkeypatch
+):
+    monkeypatch.delitem(sys.modules, "ldsfl.geometry_numba", raising=False)
+    original_import = builtins.__import__
+
+    def reject_numba(name, *args, **kwargs):
+        if name == "numba" or name.startswith("numba."):
+            raise ModuleNotFoundError("No module named 'numba'", name="numba")
+        return original_import(name, *args, **kwargs)
+
+    def fail_if_spline_starts(*args, **kwargs):
+        raise AssertionError("geometry processing started before Numba validation")
+
+    monkeypatch.setattr(builtins, "__import__", reject_numba)
+    monkeypatch.setattr(geometry_module, "matlab_spline", fail_if_spline_starts)
+    x, y = _geometry_input("sinuous")
+    with pytest.raises(RuntimeError, match="geometry_unwrap_backend='numba'.*optional Numba"):
+        geometry_module.geometry4(
+            x,
+            y,
+            1,
+            1.0,
+            "missing-numba",
+            10,
+            0,
+            12.0,
+            tmp_path,
+            do_plots=False,
+            unwrap_backend="numba",
+        )
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_unrelated_missing_module_error_is_not_reported_as_missing_numba(monkeypatch):

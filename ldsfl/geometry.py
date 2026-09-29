@@ -39,16 +39,16 @@ def _load_numba_unwrap():
 
 def ensure_geometry_unwrap_backend_available(backend: str) -> str:
     """Normalize a geometry backend and import its optional kernel if needed."""
-    selected = _normalize_unwrap_backend(backend)
-    if selected == "numba":
-        _load_numba_unwrap()
+    selected, _ = _resolve_geometry_unwrap_backend(backend)
     return selected
 
 
-def _unwrap_angles(theta: np.ndarray, backend: str) -> np.ndarray:
-    if backend == "python":
-        return unwrap_angles_like_matlab(theta)
-    return _load_numba_unwrap()(theta)
+def _resolve_geometry_unwrap_backend(backend: str):
+    """Resolve a backend and its callable once for the current geometry call."""
+    selected = _normalize_unwrap_backend(backend)
+    if selected == "numba":
+        return selected, _load_numba_unwrap()
+    return selected, unwrap_angles_like_matlab
 
 
 def _maybe_smooth_xy(
@@ -117,7 +117,7 @@ def geometry4(
     ``unwrap_backend`` selects the curvature-angle implementation: ``python``
     is the reference default, while ``numba`` uses the optional exact JIT path.
     """
-    unwrap_backend = _normalize_unwrap_backend(unwrap_backend)
+    _, unwrap_angles = _resolve_geometry_unwrap_backend(unwrap_backend)
     dslim = dsliminicial * float(dslim_upper_factor)
     dslim2 = dsliminicial * float(dslim_lower_factor)
     dslim3 = beta
@@ -272,7 +272,7 @@ def geometry4(
     dxg = matlab_gradient(xa)
     dyg = matlab_gradient(ya)
     theta_raw = np.arctan2(dyg, dxg)
-    theta = _unwrap_angles(theta_raw, unwrap_backend)
+    theta = unwrap_angles(theta_raw)
     theta = -1.0 * theta
 
     # Curvature is dtheta/ds, but ``matlab_gradient`` differentiates with respect
