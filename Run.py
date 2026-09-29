@@ -20,6 +20,15 @@ def main() -> None:
     ap.add_argument("--cases", type=str, default="1", help="Cases to run, e.g. '1' or '1,2'.")
     # numpy is the safe default: numba is an optional extra and may not be installed.
     ap.add_argument("--backend", choices=["numpy", "numba"], default="numpy")
+    ap.add_argument(
+        "--geometry-unwrap-backend",
+        choices=["python", "numba"],
+        default="python",
+        help=(
+            "Curvature-angle unwrap backend, independent of --backend. Python is the "
+            "reference/default; Numba requires the optional numba dependency."
+        ),
+    )
     ap.add_argument("--max-steps", type=int, default=0, help="0 means unlimited.")
     ap.add_argument("--nprint", type=int, default=10)
     ap.add_argument("--ntstep", type=int, default=100000)
@@ -39,6 +48,7 @@ def main() -> None:
         args.base_dir,
         cases=cases,
         flow_backend=args.backend,
+        geometry_unwrap_backend=args.geometry_unwrap_backend,
         numba_parallel=args.numba_parallel,
         numba_fastmath=args.numba_fastmath,
         do_plots=args.plots,

@@ -10,15 +10,10 @@ from time import perf_counter
 import numpy as np
 from threadpoolctl import threadpool_limits
 
-try:  # optional
-    import numba as _numba
-except Exception:  # pragma: no cover
-    _numba = None
-
 from .evolution import dxdy2, update_parameters
 from .flowfield import parall_u_free
 from .flowfield_periodic import parall_u_periodic
-from .geometry import geometry4
+from .geometry import ensure_geometry_unwrap_backend_available, geometry4
 from .inputs import dimensionless_input_table, read_parameter_table, read_xy
 from .outputs import (
     plot_it,
@@ -352,6 +347,7 @@ def run_case(
     flow_paral=0,
     flow_workers=0,
     flow_backend: str = "numpy",
+    geometry_unwrap_backend: str = "python",
     numba_parallel: bool = False,
     numba_fastmath: bool = False,
     max_steps: int | None = None,
@@ -421,6 +417,7 @@ def run_case(
         flow_paral=flow_paral,
         flow_workers=flow_workers,
         flow_backend=flow_backend,
+        geometry_unwrap_backend=geometry_unwrap_backend,
         output_units=output_units,
         output_length_scale=output_length_scale,
         output_velocity_scale=output_velocity_scale,
@@ -451,10 +448,13 @@ def run_case(
     flow_paral = controls["flow_paral"]
     flow_workers = controls["flow_workers"]
     flow_backend = controls["flow_backend"]
+    geometry_unwrap_backend = controls["geometry_unwrap_backend"]
     output_units = controls["output_units"]
     output_length_scale = controls["output_length_scale"]
     output_velocity_scale = controls["output_velocity_scale"]
     stop_mode = controls["stop_mode"]
+    run_options["geometry_unwrap_backend"] = geometry_unwrap_backend
+    ensure_geometry_unwrap_backend_available(geometry_unwrap_backend)
     out_dir.mkdir(parents=True, exist_ok=True)
     stop_on_steps = bool(stop_on_steps and max_steps is not None and max_steps > 0)
     stop_on_time = bool(stop_on_time and max_sim_time is not None and max_sim_time > 0)
@@ -578,12 +578,14 @@ def run_case(
     flow_workers = int(flow_workers)
     n_workers = None if flow_workers <= 0 else flow_workers
 
-    if _numba is not None:
+    if str(flow_backend).lower() == "numba":
         try:
-            if str(flow_backend).lower() == "numba" and bool(numba_parallel) and int(flow_paral) == 0:
-                _numba.set_num_threads(os.cpu_count() or 1)
+            import numba
+
+            if bool(numba_parallel) and int(flow_paral) == 0:
+                numba.set_num_threads(os.cpu_count() or 1)
             else:
-                _numba.set_num_threads(1)
+                numba.set_num_threads(1)
         except Exception:
             pass
 
@@ -815,6 +817,7 @@ def run_case(
                 timing=geom_sub,
                 output_units=output_units,
                 output_length_scale=output_length_scale,
+                unwrap_backend=geometry_unwrap_backend,
                 do_plots=do_plots,
             )
             if tim is not None and t0g is not None:
@@ -1081,6 +1084,7 @@ def run_case(
         "output_units": output_units,
         "output_length_scale": output_length_scale,
         "output_velocity_scale": output_velocity_scale,
+        "geometry_unwrap_backend": geometry_unwrap_backend,
         "sinuo_final": float(sinuo_hist[-1]),
         "resonance": resonance_report(beta, theta0, ds, rpic_0, flagbed, Mdat),
         "sinuosity_stability": stability_info,
@@ -1095,6 +1099,7 @@ def run_project(
     flow_paral: int = 0,
     flow_workers: int = 0,
     flow_backend: str = "numpy",
+    geometry_unwrap_backend: str = "python",
     numba_parallel: bool = False,
     numba_fastmath: bool = False,
     output_units: str = "dimensionless",
@@ -1103,6 +1108,7 @@ def run_project(
     **kwargs,
 ):
     base_dir = Path(base_dir)
+    geometry_unwrap_backend = ensure_geometry_unwrap_backend_available(geometry_unwrap_backend)
 
     df = read_parameter_table(base_dir / "Input" / "Parameter.csv")
     if cases is None:
@@ -1128,6 +1134,7 @@ def run_project(
                 flow_paral=flow_paral,
                 flow_workers=flow_workers,
                 flow_backend=flow_backend,
+                geometry_unwrap_backend=geometry_unwrap_backend,
                 numba_parallel=numba_parallel,
                 numba_fastmath=numba_fastmath,
                 output_units=output_units,

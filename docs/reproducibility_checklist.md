@@ -16,6 +16,7 @@ Record these items for every scientific run:
 | Input files | Copies or checksums of `Input/Parameter.csv` and `Input/xy.csv`. |
 | Case IDs | The selected case IDs from `Input/Parameter.csv`. |
 | Backend | `numpy` or `numba`. NumPy is the reference path. |
+| Geometry unwrap backend | `python` (reference/default) or optional `numba`; independent of the flow backend. |
 | Flow boundary condition | `free` or `periodic`. Treat periodic as experimental unless specifically validated. |
 | Output units | `dimensionless` or `dimensional`, including length/velocity scales if dimensional outputs are used. |
 | Stop criteria | Step/time/cutoff/stability stop settings. |
@@ -152,6 +153,24 @@ If using the optional Numba backend, record the Numba settings:
 --numba-fastmath 0 or 1
 ```
 
+Record the curvature-angle unwrap backend separately:
+
+```text
+--geometry-unwrap-backend python
+```
+
+or:
+
+```text
+--geometry-unwrap-backend numba
+```
+
+The Python geometry unwrap is the reference and default. The Numba geometry
+unwrap is an optional, exact JIT path for the tested case and solver path; its
+first use may compile. It does not follow automatically from `--backend numba`
+and does not depend on `--numba-parallel` or `--numba-fastmath`. Installing
+Numba does not change the Python default.
+
 For any published or reported result produced with Numba, run a small comparison against the NumPy backend for the same input and solver path.
 
 ## Boundary-condition reproducibility
@@ -233,7 +252,7 @@ run_archive/
 Use wording like:
 
 ```text
-Simulations were run with LDSFL-Meander at commit <SHA> using Python <version>. The reference NumPy backend was used with free-boundary flow conditions. The model was run with the command recorded in command.txt. Input files and generated Output/<case_id>/ files are archived with this report. Sinuosity histories are reported against solver iteration step, not dimensional physical time.
+Simulations were run with LDSFL-Meander at commit <SHA> using Python <version>. The reference NumPy flow backend and Python curvature unwrap were used with free-boundary flow conditions. The model was run with the command recorded in command.txt. Input files and generated Output/<case_id>/ files are archived with this report. Sinuosity histories are reported against solver iteration step, not dimensional physical time.
 ```
 
 Adjust the wording if using Numba, periodic boundaries, dimensional outputs, or equivalence/HAC stability stopping.

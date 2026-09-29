@@ -58,6 +58,8 @@ The case IDs must exist in the `Id` column of `Input/Parameter.csv`.
 | `--no-plots` | Disable PNG plot generation. Useful for CI, remote servers, and headless sessions. |
 | `--backend numpy` | Use the reference NumPy backend. This is the default and safest option. |
 | `--backend numba` | Use the optional Numba backend if installed and validated for the selected path. |
+| `--geometry-unwrap-backend python` | Use the reference/default curvature-angle unwrap. |
+| `--geometry-unwrap-backend numba` | Use the optional exact JIT curvature-angle unwrap; requires the `numba` extra and is independent of `--backend`. |
 | `--flow-bc free` | Use the default free-boundary flow solver. |
 | `--flow-bc periodic` | Use the periodic solver path. Treat as experimental unless validated for the target study. |
 | `--cstab 0.01` | Set the adaptive-timestep stability coefficient. |
@@ -105,6 +107,25 @@ python -m run_ldsfl --base-dir . --cases 1 --backend numba --max-steps 100 --no-
 ```
 
 NumPy should be treated as the reference backend. Numba is an acceleration path and should be compared with NumPy for the selected solver branch before relying on it for a study.
+
+The flow-field backend (`--backend`) and curvature-angle unwrap backend
+(`--geometry-unwrap-backend`) are independent controls. The unwrap backend
+defaults to `python`, the authoritative reference implementation. Selecting
+`numba` opts into the exact serial JIT implementation and requires Numba to be
+installed; its first use may incur JIT compilation. Installing Numba does not
+change the default path.
+
+For example, use the Numba flow solver with the Python curvature unwrap:
+
+```bash
+python -m run_ldsfl --base-dir . --cases 1 --backend numba --geometry-unwrap-backend python
+```
+
+Or use the NumPy flow solver with the Numba curvature unwrap:
+
+```bash
+python -m run_ldsfl --base-dir . --cases 1 --backend numpy --geometry-unwrap-backend numba
+```
 
 ## Output folders
 

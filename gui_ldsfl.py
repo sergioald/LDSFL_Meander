@@ -88,6 +88,11 @@ HELP = {
     'show_original_plot': 'If enabled, the plot view overlays the original imported geometry or initial topography/planform together with live or final results.',
     'flow_bc': 'Flow boundary condition. Use free for open-boundary runs and periodic for repeating-domain tests.',
     'backend': 'Numerical backend for the free-boundary flow solver. NumPy is the reference path; Numba uses JIT acceleration when available.',
+    'geometry_unwrap_backend': (
+        'Curvature-angle unwrap backend. Python is the reference/default implementation. '
+        'Numba is an exact optional acceleration path, requires Numba to be installed, '
+        'and may compile on first use.'
+    ),
     'flow_paral': 'Parallel-flow flag used by the solver for mode computations. Leave at 0 unless you are benchmarking or testing.',
     'flow_workers': 'Number of worker processes/threads for the parallel-flow option. Use 0 for automatic/default behavior.',
     'numba_parallel': 'Enable Numba parallel kernels where supported. This can speed up runs but may oversubscribe CPU cores when combined with flow_paral=1.',
@@ -222,6 +227,7 @@ class LdslGui(tk.Tk):
         self.show_original_plot_var = tk.BooleanVar(value=True)
         self.flow_bc_var = tk.StringVar(value='free')
         self.backend_var = tk.StringVar(value='numpy')
+        self.geometry_unwrap_backend_var = tk.StringVar(value='python')
         self.flow_paral_var = tk.StringVar(value='0')
         self.flow_workers_var = tk.StringVar(value='0')
         self.numba_parallel_var = tk.BooleanVar(value=False)
@@ -548,27 +554,35 @@ class LdslGui(tk.Tk):
         self.advanced_frame = advanced
         self._combobox_row(advanced, 0, 'Boundary condition', self.flow_bc_var, ['free', 'periodic'], help_key='flow_bc')
         self._combobox_row(advanced, 1, 'Backend', self.backend_var, ['numpy', 'numba'], help_key='backend')
-        self._entry_row(advanced, 2, 'cstab', self.cstab_var, HELP['cstab'])
-        self._entry_row(advanced, 3, 'Parallel flow flag', self.flow_paral_var, HELP['flow_paral'])
-        self._entry_row(advanced, 4, 'Flow workers', self.flow_workers_var, HELP['flow_workers'])
+        self._combobox_row(
+            advanced,
+            2,
+            'Curvature unwrap backend',
+            self.geometry_unwrap_backend_var,
+            ['python', 'numba'],
+            help_key='geometry_unwrap_backend',
+        )
+        self._entry_row(advanced, 3, 'cstab', self.cstab_var, HELP['cstab'])
+        self._entry_row(advanced, 4, 'Parallel flow flag', self.flow_paral_var, HELP['flow_paral'])
+        self._entry_row(advanced, 5, 'Flow workers', self.flow_workers_var, HELP['flow_workers'])
         numba_parallel_btn = ttk.Checkbutton(advanced, text='Numba parallel', variable=self.numba_parallel_var)
-        numba_parallel_btn.grid(row=5, column=0, columnspan=2, sticky='w', pady=(4, 0))
+        numba_parallel_btn.grid(row=6, column=0, columnspan=2, sticky='w', pady=(4, 0))
         ToolTip(numba_parallel_btn, HELP['numba_parallel'])
         numba_fastmath_btn = ttk.Checkbutton(advanced, text='Numba fastmath', variable=self.numba_fastmath_var)
-        numba_fastmath_btn.grid(row=6, column=0, columnspan=2, sticky='w')
+        numba_fastmath_btn.grid(row=7, column=0, columnspan=2, sticky='w')
         ToolTip(numba_fastmath_btn, HELP['numba_fastmath'])
-        self._entry_row(advanced, 7, 'Sinuosity stability window', self.sinuo_window_var, HELP['sinuo_window'])
-        self._entry_row(advanced, 8, 'Sinuosity relative tolerance', self.sinuo_rel_tol_var, HELP['sinuo_rel_tol'])
-        self._combobox_row(advanced, 9, 'Equivalence method', self.sinuo_equiv_method_var, ['increment', 'hac'], help_key='sinuo_equiv_method')
-        self._entry_row(advanced, 10, 'Equiv. transient step', self.sinuo_equiv_transient_step_var, HELP['sinuo_equiv_transient_step'])
-        self._entry_row(advanced, 11, 'Equiv. drift tolerance', self.sinuo_equiv_drift_tol_var, HELP['sinuo_equiv_drift_tol'])
-        self._entry_row(advanced, 12, 'Equiv. confidence', self.sinuo_equiv_confidence_var, HELP['sinuo_equiv_confidence'])
-        self._entry_row(advanced, 13, 'Equiv. min points', self.sinuo_equiv_min_points_var, HELP['sinuo_equiv_min_points'])
-        self._entry_row(advanced, 14, 'Equiv. HAC lags', self.sinuo_equiv_hac_lags_var, HELP['sinuo_equiv_hac_lags'])
-        self._entry_row(advanced, 15, 'Stability check interval', self.sinuo_stability_interval_var, HELP['sinuo_stability_interval'])
+        self._entry_row(advanced, 8, 'Sinuosity stability window', self.sinuo_window_var, HELP['sinuo_window'])
+        self._entry_row(advanced, 9, 'Sinuosity relative tolerance', self.sinuo_rel_tol_var, HELP['sinuo_rel_tol'])
+        self._combobox_row(advanced, 10, 'Equivalence method', self.sinuo_equiv_method_var, ['increment', 'hac'], help_key='sinuo_equiv_method')
+        self._entry_row(advanced, 11, 'Equiv. transient step', self.sinuo_equiv_transient_step_var, HELP['sinuo_equiv_transient_step'])
+        self._entry_row(advanced, 12, 'Equiv. drift tolerance', self.sinuo_equiv_drift_tol_var, HELP['sinuo_equiv_drift_tol'])
+        self._entry_row(advanced, 13, 'Equiv. confidence', self.sinuo_equiv_confidence_var, HELP['sinuo_equiv_confidence'])
+        self._entry_row(advanced, 14, 'Equiv. min points', self.sinuo_equiv_min_points_var, HELP['sinuo_equiv_min_points'])
+        self._entry_row(advanced, 15, 'Equiv. HAC lags', self.sinuo_equiv_hac_lags_var, HELP['sinuo_equiv_hac_lags'])
+        self._entry_row(advanced, 16, 'Stability check interval', self.sinuo_stability_interval_var, HELP['sinuo_stability_interval'])
         self._entry_row(
             advanced,
-            16,
+            17,
             'Bank erodibility / erosion rate',
             self.erosion_rate_var,
             HELP['erosion_rate'],
@@ -845,6 +859,7 @@ class LdslGui(tk.Tk):
             output_units=self.output_units_var.get(),
             flow_bc=self.flow_bc_var.get(),
             backend=self.backend_var.get(),
+            geometry_unwrap_backend=self.geometry_unwrap_backend_var.get(),
             flow_paral=int(self.flow_paral_var.get()),
             flow_workers=int(self.flow_workers_var.get()),
             numba_parallel=bool(self.numba_parallel_var.get()),
@@ -1062,6 +1077,7 @@ class LdslGui(tk.Tk):
         self.output_units_var.set(str(getattr(cfg.run, 'output_units', 'dimensionless')))
         self.flow_bc_var.set(cfg.run.flow_bc)
         self.backend_var.set(cfg.run.backend)
+        self.geometry_unwrap_backend_var.set(getattr(cfg.run, 'geometry_unwrap_backend', 'python'))
         self.flow_paral_var.set(str(cfg.run.flow_paral))
         self.flow_workers_var.set(str(cfg.run.flow_workers))
         self.numba_parallel_var.set(bool(cfg.run.numba_parallel))
@@ -1246,6 +1262,7 @@ class LdslGui(tk.Tk):
                 flow_paral=config.run.flow_paral,
                 flow_workers=config.run.flow_workers,
                 flow_backend=config.run.backend,
+                geometry_unwrap_backend=config.run.geometry_unwrap_backend,
                 numba_parallel=config.run.numba_parallel,
                 numba_fastmath=config.run.numba_fastmath,
                 output_units=scales['resolved_output_units'],
