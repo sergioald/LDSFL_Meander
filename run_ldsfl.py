@@ -188,6 +188,16 @@ def main() -> None:
         ),
     )
     ap.add_argument(
+        "--neck-detector-backend",
+        choices=["kdtree", "numba_grid"],
+        default="kdtree",
+        help=(
+            "Neck cutoff detector, independent of the flow and geometry unwrap backends. "
+            "kdtree is the reference/default SciPy KDTree; numba_grid is an optional "
+            "exact spatial-grid implementation requiring Numba."
+        ),
+    )
+    ap.add_argument(
         "--numba-parallel",
         type=int,
         default=0,
@@ -248,6 +258,7 @@ def main() -> None:
         flow_workers=args.flow_workers,
         flow_backend=args.backend,
         geometry_unwrap_backend=args.geometry_unwrap_backend,
+        neck_detector_backend=args.neck_detector_backend,
         numba_parallel=bool(args.numba_parallel),
         numba_fastmath=bool(args.numba_fastmath),
     )

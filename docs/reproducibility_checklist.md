@@ -17,6 +17,7 @@ Record these items for every scientific run:
 | Case IDs | The selected case IDs from `Input/Parameter.csv`. |
 | Backend | `numpy` or `numba`. NumPy is the reference path. |
 | Geometry unwrap backend | `python` (reference/default) or optional `numba`; independent of the flow backend. |
+| Neck detector backend | `kdtree` (SciPy reference/default) or optional `numba_grid`; independent of the flow and geometry unwrap backends. |
 | Flow boundary condition | `free` or `periodic`. Treat periodic as experimental unless specifically validated. |
 | Output units | `dimensionless` or `dimensional`, including length/velocity scales if dimensional outputs are used. |
 | Stop criteria | Step/time/cutoff/stability stop settings. |

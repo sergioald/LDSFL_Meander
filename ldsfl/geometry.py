@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from functools import partial
 from pathlib import Path
 from time import perf_counter
 
 import numpy as np
 
 from .mathutils import (
+    _find_neck_cutoff_with_refine_impl,
     find_neck_cutoff_kdtree_with_refine,
     matlab_gradient,
     matlab_spline,
@@ -49,6 +51,44 @@ def _resolve_geometry_unwrap_backend(backend: str):
     if selected == "numba":
         return selected, _load_numba_unwrap()
     return selected, unwrap_angles_like_matlab
+
+
+def _normalize_neck_detector_backend(backend: str) -> str:
+    selected = str(backend).lower()
+    if selected not in {"kdtree", "numba_grid"}:
+        raise ValueError("neck_detector_backend must be one of: kdtree, numba_grid")
+    return selected
+
+
+def _load_numba_grid_neck_detector():
+    try:
+        from .neck_numba import spatial_grid_first_hit_point_pair
+    except ModuleNotFoundError as exc:
+        if exc.name == "numba":
+            raise RuntimeError(
+                "neck_detector_backend='numba_grid' requires the optional Numba "
+                "dependency; install with .[numba]"
+            ) from exc
+        raise
+    return spatial_grid_first_hit_point_pair
+
+
+def ensure_neck_detector_backend_available(backend: str) -> str:
+    """Normalize the neck detector and import its optional implementation."""
+    selected, _ = _resolve_neck_detector_backend(backend)
+    return selected
+
+
+def _resolve_neck_detector_backend(backend: str):
+    """Resolve the detector callable once for a geometry processing call."""
+    selected = _normalize_neck_detector_backend(backend)
+    if selected == "numba_grid":
+        point_pair_detector = _load_numba_grid_neck_detector()
+        return selected, partial(
+            _find_neck_cutoff_with_refine_impl,
+            point_pair_detector=point_pair_detector,
+        )
+    return selected, find_neck_cutoff_kdtree_with_refine
 
 
 def _maybe_smooth_xy(
@@ -111,13 +151,17 @@ def geometry4(
     output_length_scale: float = 1.0,
     do_plots: bool = True,
     unwrap_backend: str = "python",
+    neck_detector_backend: str = "kdtree",
 ):
     """Process geometry and detect cutoffs.
 
     ``unwrap_backend`` selects the curvature-angle implementation: ``python``
     is the reference default, while ``numba`` uses the optional exact JIT path.
+    ``neck_detector_backend`` selects the reference SciPy KDTree or optional
+    exact Numba spatial-grid point-pair detector.
     """
     _, unwrap_angles = _resolve_geometry_unwrap_backend(unwrap_backend)
+    _, find_neck_cutoff = _resolve_neck_detector_backend(neck_detector_backend)
     dslim = dsliminicial * float(dslim_upper_factor)
     dslim2 = dsliminicial * float(dslim_lower_factor)
     dslim3 = beta
@@ -159,7 +203,7 @@ def geometry4(
             if timing is not None:
                 timing["geometry_neck_searches"] = int(timing.get("geometry_neck_searches", 0) + 1)
                 detector_start = perf_counter()
-            hit = find_neck_cutoff_kdtree_with_refine(xa, ya, ss, dslim3)
+            hit = find_neck_cutoff(xa, ya, ss, dslim3)
             if timing is not None:
                 timing["geometry_neck_detector"] = float(
                     timing.get("geometry_neck_detector", 0.0) + (perf_counter() - detector_start)

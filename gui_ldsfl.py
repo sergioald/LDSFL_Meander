@@ -60,6 +60,11 @@ GEOMETRY_OPTIONS = {
     'Use geometry as provided': 'as_is',
     'Scale x and y by half-width B_0': 'scale_by_dimensional_half_width',
 }
+NECK_DETECTOR_OPTIONS = {
+    'KDTree': 'kdtree',
+    'Numba grid': 'numba_grid',
+}
+NECK_DETECTOR_LABELS = {value: label for label, value in NECK_DETECTOR_OPTIONS.items()}
 HELP = {
     'beta': 'Reference aspect ratio beta_0 = B_0/D_0, where B_0 is the half-width and D_0 is the reference depth. Larger values mean wider, shallower channels.',
     'ds': 'Reference relative grain size ds_0 = d50/D_0. This is the grain size scaled by the reference depth D_0.',
@@ -92,6 +97,10 @@ HELP = {
         'Curvature-angle unwrap backend. Python is the reference/default implementation. '
         'Numba is an exact optional acceleration path, requires Numba to be installed, '
         'and may compile on first use.'
+    ),
+    'neck_detector_backend': (
+        'Neck cutoff detector. KDTree is the SciPy reference/default. Numba grid is an '
+        'optional exact spatial-grid implementation and requires Numba to be installed.'
     ),
     'flow_paral': 'Parallel-flow flag used by the solver for mode computations. Leave at 0 unless you are benchmarking or testing.',
     'flow_workers': 'Number of worker processes/threads for the parallel-flow option. Use 0 for automatic/default behavior.',
@@ -228,6 +237,7 @@ class LdslGui(tk.Tk):
         self.flow_bc_var = tk.StringVar(value='free')
         self.backend_var = tk.StringVar(value='numpy')
         self.geometry_unwrap_backend_var = tk.StringVar(value='python')
+        self.neck_detector_backend_var = tk.StringVar(value='KDTree')
         self.flow_paral_var = tk.StringVar(value='0')
         self.flow_workers_var = tk.StringVar(value='0')
         self.numba_parallel_var = tk.BooleanVar(value=False)
@@ -562,6 +572,14 @@ class LdslGui(tk.Tk):
             ['python', 'numba'],
             help_key='geometry_unwrap_backend',
         )
+        self._combobox_row(
+            advanced,
+            18,
+            'Neck detector backend',
+            self.neck_detector_backend_var,
+            list(NECK_DETECTOR_OPTIONS),
+            help_key='neck_detector_backend',
+        )
         self._entry_row(advanced, 3, 'cstab', self.cstab_var, HELP['cstab'])
         self._entry_row(advanced, 4, 'Parallel flow flag', self.flow_paral_var, HELP['flow_paral'])
         self._entry_row(advanced, 5, 'Flow workers', self.flow_workers_var, HELP['flow_workers'])
@@ -860,6 +878,10 @@ class LdslGui(tk.Tk):
             flow_bc=self.flow_bc_var.get(),
             backend=self.backend_var.get(),
             geometry_unwrap_backend=self.geometry_unwrap_backend_var.get(),
+            neck_detector_backend=NECK_DETECTOR_OPTIONS.get(
+                self.neck_detector_backend_var.get(),
+                self.neck_detector_backend_var.get(),
+            ),
             flow_paral=int(self.flow_paral_var.get()),
             flow_workers=int(self.flow_workers_var.get()),
             numba_parallel=bool(self.numba_parallel_var.get()),
@@ -1078,6 +1100,8 @@ class LdslGui(tk.Tk):
         self.flow_bc_var.set(cfg.run.flow_bc)
         self.backend_var.set(cfg.run.backend)
         self.geometry_unwrap_backend_var.set(getattr(cfg.run, 'geometry_unwrap_backend', 'python'))
+        neck_backend = str(getattr(cfg.run, 'neck_detector_backend', 'kdtree')).lower()
+        self.neck_detector_backend_var.set(NECK_DETECTOR_LABELS.get(neck_backend, neck_backend))
         self.flow_paral_var.set(str(cfg.run.flow_paral))
         self.flow_workers_var.set(str(cfg.run.flow_workers))
         self.numba_parallel_var.set(bool(cfg.run.numba_parallel))
@@ -1263,6 +1287,7 @@ class LdslGui(tk.Tk):
                 flow_workers=config.run.flow_workers,
                 flow_backend=config.run.backend,
                 geometry_unwrap_backend=config.run.geometry_unwrap_backend,
+                neck_detector_backend=config.run.neck_detector_backend,
                 numba_parallel=config.run.numba_parallel,
                 numba_fastmath=config.run.numba_fastmath,
                 output_units=scales['resolved_output_units'],

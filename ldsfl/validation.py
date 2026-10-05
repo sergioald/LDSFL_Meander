@@ -18,6 +18,7 @@ _DISPLAY_NAMES = {
     "sinuo_equiv_method": "Equivalence method (sinuo_equiv_method)",
     "sinuo_stability_interval": "Sinuosity stability check interval (sinuo_stability_interval)",
     "geometry_unwrap_backend": "Geometry unwrap backend (geometry_unwrap_backend)",
+    "neck_detector_backend": "Neck detector backend (neck_detector_backend)",
 }
 
 
@@ -164,6 +165,7 @@ def validate_run_controls(**values) -> dict:
         ("flow_bc", {"free", "periodic"}),
         ("flow_backend", {"numpy", "numba"}),
         ("geometry_unwrap_backend", {"python", "numba"}),
+        ("neck_detector_backend", {"kdtree", "numba_grid"}),
         ("output_units", {"dimensionless", "dimensional"}),
         ("sinuo_equiv_method", {"increment", "hac"}),
         ("stop_mode", {"first", "all"}),

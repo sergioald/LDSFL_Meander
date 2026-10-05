@@ -13,7 +13,11 @@ from threadpoolctl import threadpool_limits
 from .evolution import dxdy2, update_parameters
 from .flowfield import parall_u_free
 from .flowfield_periodic import parall_u_periodic
-from .geometry import ensure_geometry_unwrap_backend_available, geometry4
+from .geometry import (
+    ensure_geometry_unwrap_backend_available,
+    ensure_neck_detector_backend_available,
+    geometry4,
+)
 from .inputs import dimensionless_input_table, read_parameter_table, read_xy
 from .outputs import (
     plot_it,
@@ -380,6 +384,7 @@ def run_case(
     stop_requested_callback=None,
     run_started_callback=None,
     geometry_unwrap_backend: str = "python",
+    neck_detector_backend: str = "kdtree",
 ):
     """Run one LDSFL-Meander case using the prepared Input/ files."""
     # Capture the supplied options before local solver state is introduced.
@@ -418,6 +423,7 @@ def run_case(
         flow_workers=flow_workers,
         flow_backend=flow_backend,
         geometry_unwrap_backend=geometry_unwrap_backend,
+        neck_detector_backend=neck_detector_backend,
         output_units=output_units,
         output_length_scale=output_length_scale,
         output_velocity_scale=output_velocity_scale,
@@ -449,12 +455,16 @@ def run_case(
     flow_workers = controls["flow_workers"]
     flow_backend = controls["flow_backend"]
     geometry_unwrap_backend = controls["geometry_unwrap_backend"]
+    neck_detector_backend = controls["neck_detector_backend"]
     output_units = controls["output_units"]
     output_length_scale = controls["output_length_scale"]
     output_velocity_scale = controls["output_velocity_scale"]
     stop_mode = controls["stop_mode"]
     run_options["geometry_unwrap_backend"] = geometry_unwrap_backend
+    run_options["neck_detector_backend"] = neck_detector_backend
     ensure_geometry_unwrap_backend_available(geometry_unwrap_backend)
+    neck_detector_backend = ensure_neck_detector_backend_available(neck_detector_backend)
+    run_options["neck_detector_backend"] = neck_detector_backend
     out_dir.mkdir(parents=True, exist_ok=True)
     stop_on_steps = bool(stop_on_steps and max_steps is not None and max_steps > 0)
     stop_on_time = bool(stop_on_time and max_sim_time is not None and max_sim_time > 0)
@@ -818,6 +828,7 @@ def run_case(
                 output_units=output_units,
                 output_length_scale=output_length_scale,
                 unwrap_backend=geometry_unwrap_backend,
+                neck_detector_backend=neck_detector_backend,
                 do_plots=do_plots,
             )
             if tim is not None and t0g is not None:
@@ -1085,6 +1096,7 @@ def run_case(
         "output_length_scale": output_length_scale,
         "output_velocity_scale": output_velocity_scale,
         "geometry_unwrap_backend": geometry_unwrap_backend,
+        "neck_detector_backend": neck_detector_backend,
         "sinuo_final": float(sinuo_hist[-1]),
         "resonance": resonance_report(beta, theta0, ds, rpic_0, flagbed, Mdat),
         "sinuosity_stability": stability_info,
@@ -1100,6 +1112,7 @@ def run_project(
     flow_workers: int = 0,
     flow_backend: str = "numpy",
     geometry_unwrap_backend: str = "python",
+    neck_detector_backend: str = "kdtree",
     numba_parallel: bool = False,
     numba_fastmath: bool = False,
     output_units: str = "dimensionless",
@@ -1109,6 +1122,7 @@ def run_project(
 ):
     base_dir = Path(base_dir)
     geometry_unwrap_backend = ensure_geometry_unwrap_backend_available(geometry_unwrap_backend)
+    neck_detector_backend = ensure_neck_detector_backend_available(neck_detector_backend)
 
     df = read_parameter_table(base_dir / "Input" / "Parameter.csv")
     if cases is None:
@@ -1135,6 +1149,7 @@ def run_project(
                 flow_workers=flow_workers,
                 flow_backend=flow_backend,
                 geometry_unwrap_backend=geometry_unwrap_backend,
+                neck_detector_backend=neck_detector_backend,
                 numba_parallel=numba_parallel,
                 numba_fastmath=numba_fastmath,
                 output_units=output_units,

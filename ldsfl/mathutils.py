@@ -204,21 +204,22 @@ def _map_refined_idx_to_original(idx_ref, seg_left, tvals):
         return i + 1
 
 
-def find_neck_cutoff_kdtree_with_refine(
+def _find_neck_cutoff_with_refine_impl(
     xa: np.ndarray,
     ya: np.ndarray,
     ss: int,
     dslim3: float,
     *,
+    point_pair_detector,
     refine_trigger: float = 0.5,     # ds_max > refine_trigger * dslim3 triggers refinement
     refine_target: float = 0.5,      # refine to ds_target = refine_target * dslim3
     max_refined_points: int = 200_000
 ):
     """
-    1) KDTree on original points.
+    1) The selected point-pair detector on original points.
     2) If no hit and ds_max > refine_trigger*dslim3:
          temporarily refine long segments to ds_target = refine_target*dslim3,
-         then KDTree on refined points,
+         then the selected detector on refined points,
          then map found refined indices back to original vertex indices.
 
     Returns (i0, j0) 0-based indices into original xa,ya, or None.
@@ -230,7 +231,7 @@ def find_neck_cutoff_kdtree_with_refine(
         return None
 
     # Fast path
-    hit = _kdtree_first_hit_point_pair(xa, ya, ss, dslim3)
+    hit = point_pair_detector(xa, ya, ss, dslim3)
     if hit is not None:
         return hit
 
@@ -255,7 +256,7 @@ def find_neck_cutoff_kdtree_with_refine(
     ds_mean = float(seglen.mean()) if seglen.size else ds_target
     ss_ref = max(1, int(np.ceil(ss * (ds_mean / ds_target))))
 
-    hit_r = _kdtree_first_hit_point_pair(xr, yr, ss_ref, dslim3)
+    hit_r = point_pair_detector(xr, yr, ss_ref, dslim3)
     if hit_r is None:
         return None
 
@@ -277,6 +278,54 @@ def find_neck_cutoff_kdtree_with_refine(
         return int(i0), int(j0)
 
     return None
+
+
+def find_neck_cutoff_kdtree_with_refine(
+    xa: np.ndarray,
+    ya: np.ndarray,
+    ss: int,
+    dslim3: float,
+    *,
+    refine_trigger: float = 0.5,
+    refine_target: float = 0.5,
+    max_refined_points: int = 200_000,
+):
+    """Reference KDTree detector with the shared refinement semantics."""
+    return _find_neck_cutoff_with_refine_impl(
+        xa,
+        ya,
+        ss,
+        dslim3,
+        point_pair_detector=_kdtree_first_hit_point_pair,
+        refine_trigger=refine_trigger,
+        refine_target=refine_target,
+        max_refined_points=max_refined_points,
+    )
+
+
+def find_neck_cutoff_numba_grid_with_refine(
+    xa: np.ndarray,
+    ya: np.ndarray,
+    ss: int,
+    dslim3: float,
+    *,
+    refine_trigger: float = 0.5,
+    refine_target: float = 0.5,
+    max_refined_points: int = 200_000,
+):
+    """Use the optional Numba grid detector with reference refinement rules."""
+    from .neck_numba import spatial_grid_first_hit_point_pair
+
+    return _find_neck_cutoff_with_refine_impl(
+        xa,
+        ya,
+        ss,
+        dslim3,
+        point_pair_detector=spatial_grid_first_hit_point_pair,
+        refine_trigger=refine_trigger,
+        refine_target=refine_target,
+        max_refined_points=max_refined_points,
+    )
 
 
 def smooth_xy_via_theta(
