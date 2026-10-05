@@ -1,0 +1,38 @@
+name: Performance guardrails
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  warmed-relative-microbenchmarks:
+    name: Accepted exact backends / Python 3.12
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install development and Numba dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,numba]"
+      - name: Run warmed relative performance guardrails
+        run: >-
+          python benchmarks/ci_performance_guardrails.py
+          --output benchmarks/Output/ci_performance_guardrails/performance_guardrails.json
+      - name: Upload performance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-guardrails-python312
+          path: benchmarks/Output/ci_performance_guardrails/performance_guardrails.json
+          if-no-files-found: warn

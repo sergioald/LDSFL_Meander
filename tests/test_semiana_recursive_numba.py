@@ -72,6 +72,16 @@ def _flow_args(n_points: int, beta: float) -> tuple:
     return c, s, cf0, ct, cd, phit, phid, beta, rpic, theta0, f0, mdat, 1, n_points, np.array([1.0]), s[1] - s[0]
 
 
+def test_recursive_numba_kernels_keep_serial_non_fastmath_options():
+    from ldsfl.flowfield_numba import _fill_dwstr_recursive_real_nb, _fill_upstr_recursive_real_nb
+
+    for kernel in (_fill_upstr_recursive_real_nb, _fill_dwstr_recursive_real_nb):
+        options = kernel.targetoptions
+        assert kernel.stats.cache_path is None
+        assert options.get("fastmath", False) is False
+        assert options.get("parallel", False) is False
+
+
 def _three_responses(monkeypatch, n_points: int, sl: int, beta: float):
     args = _flow_args(n_points, beta)
     opts = {"SL": sl, "paral": 0, "vertical_backend": "numba", "numba_parallel": False, "numba_fastmath": False}

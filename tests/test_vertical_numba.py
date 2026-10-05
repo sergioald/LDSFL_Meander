@@ -16,7 +16,9 @@ requires_numba = pytest.mark.skipif(not numba_available, reason="numba optional 
 @requires_numba
 @pytest.mark.parametrize("cf0", [0.003, 0.01318086081547672, 0.04])
 def test_numba_k0123_matches_python_reference_tightly(cf0):
-    from ldsfl.vertical_numba import clear_k0123_cache, k0123_numba_cached
+    from ldsfl.vertical_numba import _k0123_kernel, clear_k0123_cache, k0123_numba_cached
+
+    assert _k0123_kernel.targetoptions.get("fastmath", False) is False
 
     clear_k0123_cache()
     reference = k0123(cf0)
@@ -27,6 +29,35 @@ def test_numba_k0123_matches_python_reference_tightly(cf0):
     for index in range(4, 8):
         np.testing.assert_allclose(accelerated[index], reference[index], rtol=3e-11, atol=2e-13)
     np.testing.assert_allclose(accelerated[8], reference[8], rtol=5e-15, atol=0.0)
+
+
+@requires_numba
+def test_numba_flow_backend_routes_vertical_coefficients_through_numba_kernel():
+    from ldsfl.flowfield import parall_u_free
+    from ldsfl.resistance import resistance_function_flagbed
+    from ldsfl.vertical_numba import clear_k0123_cache, k0123_cache_info
+
+    theta0, ds, rpic0 = 0.3, 0.005, 0.5
+    rpic, cf0, ct, cd, phi_t, phi_d, f0 = resistance_function_flagbed(2, theta0, ds, rpic0)
+    s = np.linspace(0.0, 10.0, 51, dtype=np.float64)
+    c = 1.0e-3 * np.sin(2.0 * np.pi * s / s[-1])
+    common = (
+        c, s, cf0, ct, cd, phi_t, phi_d, 9.0, rpic, theta0, f0, 3, 1, len(s),
+        np.array([1.0]), s[1] - s[0],
+    )
+
+    clear_k0123_cache()
+    parall_u_free(
+        *common,
+        SL=0,
+        backend="numba",
+        numba_parallel=False,
+        numba_fastmath=False,
+    )
+
+    info = k0123_cache_info()
+    assert info.misses == 1
+    assert info.currsize == 1
 
 
 @requires_numba
