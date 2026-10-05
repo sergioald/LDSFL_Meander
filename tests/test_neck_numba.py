@@ -27,7 +27,7 @@ def test_numba_grid_keeps_serial_non_fastmath_uncached_options():
     pytest.importorskip("numba")
     from ldsfl.neck_numba import _spatial_grid_first_hit_kernel
 
-    assert _spatial_grid_first_hit_kernel.targetoptions.get("cache", False) is False
+    assert _spatial_grid_first_hit_kernel.stats.cache_path is None
     assert _spatial_grid_first_hit_kernel.targetoptions.get("fastmath") is False
     assert _spatial_grid_first_hit_kernel.targetoptions.get("parallel", False) is False
 
