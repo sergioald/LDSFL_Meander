@@ -60,6 +60,8 @@ The case IDs must exist in the `Id` column of `Input/Parameter.csv`.
 | `--backend numba` | Use the optional Numba backend if installed and validated for the selected path. |
 | `--geometry-unwrap-backend python` | Use the reference/default curvature-angle unwrap. |
 | `--geometry-unwrap-backend numba` | Use the optional exact JIT curvature-angle unwrap; requires the `numba` extra and is independent of `--backend`. |
+| `--neck-detector-backend kdtree` | Use the SciPy KDTree neck cutoff detector. This is the reference/default. |
+| `--neck-detector-backend numba_grid` | Use the optional exact Numba spatial-grid neck detector; requires the `numba` extra and is independent of the flow and geometry unwrap backends. |
 | `--flow-bc free` | Use the default free-boundary flow solver. |
 | `--flow-bc periodic` | Use the periodic solver path. Treat as experimental unless validated for the target study. |
 | `--cstab 0.01` | Set the adaptive-timestep stability coefficient. |
@@ -93,6 +95,22 @@ This distinction matters when:
 The selected value is returned in the run summary as `erosion_rate`.
 
 ## Backend guidance
+
+The neck cutoff detector is selected independently with
+`--neck-detector-backend kdtree|numba_grid`. The default `kdtree` path uses the
+SciPy reference implementation and does not require Numba. `numba_grid` uses
+the optional exact spatial-grid detector and requires the `numba` extra. The
+choice does not change `--backend` or `--geometry-unwrap-backend`.
+If an individual `numba_grid` search cannot safely represent its cell
+coordinates in the integer grid, it delegates to the KDTree reference. This
+numerical-safety fallback does not select a different backend automatically
+or replace the error when Numba is missing.
+
+For the validated case-1 5,000-step study, benchmark-prototype measurements
+showed median speedups of about 19.93x for detector calls, 2.71x for geometry,
+and 1.59x for the whole solver. These are workload- and machine-specific
+measurements, not a guarantee for other runs. Record the selected neck detector
+backend with the run configuration.
 
 Use NumPy first:
 

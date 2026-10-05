@@ -204,6 +204,7 @@ class RunControls:
     flow_bc: str = "free"
     backend: str = "numpy"
     geometry_unwrap_backend: str = "python"
+    neck_detector_backend: str = "kdtree"
     flow_paral: int = 0
     flow_workers: int = 0
     numba_parallel: bool = False
@@ -463,6 +464,7 @@ def preview_case_config(config: GuiCaseConfig) -> dict:
         "resample_upper_factor": float(config.geometry.resample_upper_factor),
         "resample_lower_factor": float(config.geometry.resample_lower_factor),
         "geometry_unwrap_backend": str(config.run.geometry_unwrap_backend),
+        "neck_detector_backend": str(config.run.neck_detector_backend),
         "cstab": float(config.run.cstab),
         "erosion_rate": float(config.run.erosion_rate),
         "sinuo_window": int(config.run.sinuo_window),
@@ -525,6 +527,7 @@ def validate_case_config(config: GuiCaseConfig) -> list[str]:
         flow_workers=config.run.flow_workers,
         flow_backend=config.run.backend,
         geometry_unwrap_backend=config.run.geometry_unwrap_backend,
+        neck_detector_backend=config.run.neck_detector_backend,
         output_units=config.run.output_units,
         output_length_scale=scales["output_length_scale"],
         output_velocity_scale=scales["output_velocity_scale"],

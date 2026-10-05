@@ -82,8 +82,8 @@ def test_run_case_preserves_legacy_positional_parameter_order():
         "run_started_callback",
     )
     actual_order = tuple(inspect.signature(run_case).parameters)
-    assert actual_order[:-1] == expected_legacy_order
-    assert actual_order[-1] == "geometry_unwrap_backend"
+    assert actual_order[:-2] == expected_legacy_order
+    assert actual_order[-2:] == ("geometry_unwrap_backend", "neck_detector_backend")
 
 
 def _same_exact(left, right) -> bool:
@@ -414,7 +414,34 @@ def test_run_ldsfl_cli_forwards_default_and_explicit_geometry_backend(monkeypatc
     run_ldsfl.main()
     assert captured[0]["geometry_unwrap_backend"] == "python"
     assert captured[1]["geometry_unwrap_backend"] == "numba"
+    assert captured[0]["neck_detector_backend"] == captured[1]["neck_detector_backend"] == "kdtree"
     assert captured[0]["flow_backend"] == captured[1]["flow_backend"] == "numpy"
+
+
+def test_run_ldsfl_cli_forwards_neck_backend_independently(monkeypatch, tmp_path):
+    import run_ldsfl
+
+    captured = []
+    monkeypatch.setattr(run_ldsfl, "run_project", lambda *args, **kwargs: captured.append(kwargs) or [])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_ldsfl.py",
+            "--base-dir",
+            str(tmp_path),
+            "--backend",
+            "numpy",
+            "--geometry-unwrap-backend",
+            "python",
+            "--neck-detector-backend",
+            "numba_grid",
+        ],
+    )
+    run_ldsfl.main()
+    assert captured[0]["flow_backend"] == "numpy"
+    assert captured[0]["geometry_unwrap_backend"] == "python"
+    assert captured[0]["neck_detector_backend"] == "numba_grid"
 
 
 def test_run_ldsfl_cli_rejects_invalid_geometry_backend(monkeypatch, tmp_path):
@@ -434,16 +461,48 @@ def test_run_py_forwards_geometry_backend_independently(monkeypatch):
     convenience_launcher.main()
     assert captured["geometry_unwrap_backend"] == "numba"
     assert captured["flow_backend"] == "numpy"
+    assert captured["neck_detector_backend"] == "kdtree"
 
 
-def _gui_config(tmp_path: Path, geometry_backend: str = "python") -> GuiCaseConfig:
+def test_run_py_forwards_neck_backend_independently(monkeypatch):
+    import Run as convenience_launcher
+
+    captured = {}
+    monkeypatch.setattr(convenience_launcher, "run_project", lambda *args, **kwargs: captured.update(kwargs))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "Run.py",
+            "--backend",
+            "numba",
+            "--geometry-unwrap-backend",
+            "numba",
+            "--neck-detector-backend",
+            "kdtree",
+        ],
+    )
+    convenience_launcher.main()
+    assert captured["flow_backend"] == "numba"
+    assert captured["geometry_unwrap_backend"] == "numba"
+    assert captured["neck_detector_backend"] == "kdtree"
+
+
+def _gui_config(
+    tmp_path: Path,
+    geometry_backend: str = "python",
+    neck_backend: str = "kdtree",
+) -> GuiCaseConfig:
     xy_csv = tmp_path / "xy.csv"
     xy_csv.write_text("0,0\n1,0.01\n2,0.03\n3,0.05\n4,0.08\n5,0.1\n", encoding="utf-8")
     return GuiCaseConfig(
         mode="dimensionless",
         xy_csv=xy_csv,
         workspace_dir=tmp_path,
-        run=RunControls(geometry_unwrap_backend=geometry_backend),
+        run=RunControls(
+            geometry_unwrap_backend=geometry_backend,
+            neck_detector_backend=neck_backend,
+        ),
         dimensionless=DimensionlessInputs(9.0, 0.005, 0.3, 2, 0.5, 6),
         geometry=GeometrySettings(),
     )
@@ -459,6 +518,7 @@ def test_gui_config_round_trips_geometry_backend(tmp_path, backend):
 
 def test_gui_config_defaults_geometry_backend_to_python():
     assert RunControls().geometry_unwrap_backend == "python"
+    assert RunControls().neck_detector_backend == "kdtree"
 
 
 def test_legacy_gui_config_without_geometry_backend_defaults_to_python(tmp_path):
@@ -468,9 +528,24 @@ def test_legacy_gui_config_without_geometry_backend_defaults_to_python(tmp_path)
     assert restored.run.geometry_unwrap_backend == "python"
 
 
+def test_legacy_gui_config_without_neck_backend_defaults_to_kdtree(tmp_path):
+    legacy = config_to_dict(_gui_config(tmp_path))
+    legacy["run"].pop("neck_detector_backend")
+    restored = config_from_dict(legacy)
+    assert restored.run.neck_detector_backend == "kdtree"
+
+
+def test_gui_neck_detector_labels_map_to_public_backend_values():
+    gui_module = pytest.importorskip("gui_ldsfl")
+    assert gui_module.NECK_DETECTOR_OPTIONS == {
+        "KDTree": "kdtree",
+        "Numba grid": "numba_grid",
+    }
+
+
 def test_gui_worker_forwards_geometry_backend(monkeypatch, tmp_path):
     gui_module = pytest.importorskip("gui_ldsfl")
-    config = _gui_config(tmp_path, "numba")
+    config = _gui_config(tmp_path, "numba", "numba_grid")
     captured = {}
     gui = gui_module.LdslGui.__new__(gui_module.LdslGui)
     gui.stop_requested_event = threading.Event()
@@ -488,3 +563,4 @@ def test_gui_worker_forwards_geometry_backend(monkeypatch, tmp_path):
     gui._run_case_worker(config)
     assert captured["geometry_unwrap_backend"] == "numba"
     assert captured["flow_backend"] == "numpy"
+    assert captured["neck_detector_backend"] == "numba_grid"

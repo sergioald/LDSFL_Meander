@@ -101,6 +101,23 @@ NumPy flow can be combined with the Numba geometry unwrap, or Numba flow can be
 combined with the Python reference unwrap. The selected geometry backend is
 stored in `run_config.json`.
 
+The neck cutoff detector has its own independent selector,
+`neck_detector_backend="kdtree"|"numba_grid"` in the Python API and
+`--neck-detector-backend kdtree|numba_grid` on the CLI. `kdtree` is the default
+SciPy reference path and does not import Numba. `numba_grid` selects the
+optional exact spatial-grid detector and requires the `numba` extra. It can be
+combined independently with either flow backend and either geometry unwrap
+backend, and the selected value is stored in `run_config.json`.
+If an individual `numba_grid` search cannot safely represent its cell
+coordinates in the integer grid, it delegates to the KDTree reference. This
+is a numerical-safety fallback within the selected backend, not automatic
+backend selection or a fallback for missing Numba.
+
+In the validated case-1 5,000-step benchmark study, the prototype's median
+speedups were about 19.93x for detector calls, 2.71x for geometry, and 1.59x
+for the whole solver. These measurements are specific to that workload and
+machine; they do not guarantee the same speedup for other simulations.
+
 In the validated 5,000-step case-1 benchmark on the development machine, the
 median paired whole-solver speedup was approximately 1.09x across five pairs.
 This is machine- and workload-specific evidence, not a universal speedup.
